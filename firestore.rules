@@ -1,0 +1,157 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128; }
+    function isAdmin() { 
+      return isSignedIn() 
+        && 'email' in request.auth.token
+        && (
+          request.auth.token.email.lower() == 'pondokpesantrensemar@gmail.com' ||
+          exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()))
+        ); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Entity Validations ---
+    function isValidProgram(data) {
+      return data.keys().hasAll(['title', 'description', 'order']) 
+        && data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 5000
+        && data.order is number
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1048576));
+    }
+
+    function isValidSetting(data) {
+      return data.heroTitle is string && data.heroTitle.size() <= 500
+        && data.heroSubtitle is string && data.heroSubtitle.size() <= 2000
+        && data.contactEmail is string && data.contactEmail.size() <= 150
+        && data.contactPhone is string && data.contactPhone.size() <= 100
+        && data.address is string && data.address.size() <= 1000
+        && (!('runningText' in data) || (data.runningText is string && data.runningText.size() <= 1000))
+        && (!('slideshowImages' in data) || (data.slideshowImages is list && data.slideshowImages.size() <= 20))
+        && (!('heroImage' in data) || (data.heroImage is string && data.heroImage.size() <= 1048576))
+        && (!('aboutImage' in data) || (data.aboutImage is string && data.aboutImage.size() <= 1048576));
+    }
+
+    function isValidGalleryImage(data) {
+      return data.url is string && data.url.size() <= 1048576
+        && data.title is string && data.title.size() <= 500
+        && data.category is string && data.category.size() <= 100
+        && data.order is number;
+    }
+
+    function isValidFacility(data) {
+      return data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 2000
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1048576));
+    }
+
+    function isValidKesantrian(data) {
+      return data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 2000
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1048576))
+        && (!('schedule' in data) || (data.schedule is string && data.schedule.size() <= 500));
+    }
+
+    function isValidPermit(data) {
+      return data.studentName is string && data.studentName.size() <= 200
+        && data.type is string && (data.type == 'Izin Pulang' || data.type == 'Sakit' || data.type == 'Kunjungan')
+        && data.reason is string && data.reason.size() <= 2000
+        && data.startDate is string
+        && (!('endDate' in data) || data.endDate is string)
+        && (!('status' in data) || data.status is string)
+        && (!('gender' in data) || (data.gender is string))
+        && (!('authorizedBy' in data) || data.authorizedBy is string)
+        && (data.createdAt == request.time || data.createdAt is timestamp);
+    }
+
+    function isValidRegistration(data) {
+      return data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 200
+        && data.phoneNumber is string && data.phoneNumber.size() >= 5 && data.phoneNumber.size() <= 100
+        && data.address is string && data.address.size() > 0 && data.address.size() <= 1000
+        && data.birthDate is string && data.birthDate.size() > 0
+        && data.program is string && data.program.size() > 0
+        && (!('gender' in data) || (data.gender is string))
+        && (!('nik' in data) || (data.nik is string))
+        && (!('nisn' in data) || (data.nisn is string))
+        && (!('birthPlace' in data) || (data.birthPlace is string))
+        && (!('bloodType' in data) || (data.bloodType is string))
+        && (!('height' in data) || (data.height is string || data.height is number))
+        && (!('weight' in data) || (data.weight is string || data.weight is number))
+        && (!('previousSchool' in data) || (data.previousSchool is string))
+        && (!('schoolAddress' in data) || (data.schoolAddress is string))
+        && (!('fatherName' in data) || (data.fatherName is string))
+        && (!('fatherNIK' in data) || (data.fatherNIK is string))
+        && (!('fatherEducation' in data) || (data.fatherEducation is string))
+        && (!('motherName' in data) || (data.motherName is string))
+        && (!('motherNIK' in data) || (data.motherNIK is string))
+        && (!('motherEducation' in data) || (data.motherEducation is string))
+        && (!('parentOccupation' in data) || (data.parentOccupation is string))
+        && (!('monthlyIncome' in data) || (data.monthlyIncome is string))
+        && (!('motivation' in data) || (data.motivation is string))
+        && (data.status == 'Pending' || data.status == 'Verified' || data.status == 'Rejected')
+        && (data.createdAt == request.time || data.createdAt is timestamp);
+    }
+
+    // --- Collections ---
+    
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidSetting(incoming());
+    }
+    
+    match /admins/{email} {
+      allow read: if isSignedIn();
+      allow write: if (isSignedIn() && request.auth.token.email.lower() == 'pondokpesantrensemar@gmail.com') || isAdmin();
+    }
+
+    match /programs/{programId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidProgram(incoming()) && isValidId(programId);
+      allow update: if isAdmin() && isValidProgram(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /gallery/{imageId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidGalleryImage(incoming()) && isValidId(imageId);
+      allow update: if isAdmin() && isValidGalleryImage(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /facilities/{facilityId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidFacility(incoming()) && isValidId(facilityId);
+      allow update: if isAdmin() && isValidFacility(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /kesantrian/{activityId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidKesantrian(incoming()) && isValidId(activityId);
+      allow update: if isAdmin() && isValidKesantrian(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /registrations/{regId} {
+      allow create: if (isValidRegistration(incoming()) && (incoming().status == 'Pending' || isAdmin())) && isValidId(regId);
+      allow read, update, delete: if isAdmin();
+    }
+    
+    match /permits/{permitId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /test/{docId} {
+       allow read: if true;
+    }
+  }
+}

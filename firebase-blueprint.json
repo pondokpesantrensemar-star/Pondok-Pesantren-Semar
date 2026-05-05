@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "Program": {
+      "title": "Program Pendidikan",
+      "description": "Program unggulan yang ditawarkan oleh pesantren.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["title", "description"]
+    },
+    "Setting": {
+      "title": "Pengaturan Website",
+      "description": "Konfigurasi umum website.",
+      "type": "object",
+      "properties": {
+        "heroTitle": { "type": "string" },
+        "heroSubtitle": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "address": { "type": "string" }
+      }
+    },
+    "Admin": {
+      "title": "Administrator",
+      "description": "Daftar pengguna yang memiliki akses admin.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    },
+    "GalleryImage": {
+      "title": "Foto Galeri",
+      "description": "Foto-foto kegiatan pesantren.",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "order": { "type": "number" },
+        "rotation": { "type": "number" },
+        "brightness": { "type": "number" },
+        "contrast": { "type": "number" },
+        "grayscale": { "type": "boolean" }
+      },
+      "required": ["url", "title"]
+    },
+    "Facility": {
+      "title": "Fasilitas",
+      "description": "Fasilitas yang ada di pesantren.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["title", "description"]
+    },
+    "StudentActivity": {
+      "title": "Kesantrian",
+      "description": "Kegiatan santri di luar jam pelajaran.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "schedule": { "type": "string" }
+      },
+      "required": ["title", "description"]
+    },
+    "Registration": {
+      "title": "Pendaftaran",
+      "description": "Data calon santri baru.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "gender": { "type": "string" },
+        "nik": { "type": "string" },
+        "nisn": { "type": "string" },
+        "birthPlace": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "bloodType": { "type": "string" },
+        "height": { "type": "string" },
+        "weight": { "type": "string" },
+        "previousSchool": { "type": "string" },
+        "schoolAddress": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "fatherNIK": { "type": "string" },
+        "fatherEducation": { "type": "string" },
+        "motherName": { "type": "string" },
+        "motherNIK": { "type": "string" },
+        "motherEducation": { "type": "string" },
+        "parentOccupation": { "type": "string" },
+        "monthlyIncome": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "program": { "type": "string" },
+        "motivation": { "type": "string" },
+        "registrationFee": { "type": "string" },
+        "dormitoryFee": { "type": "string" },
+        "monthlyTuition": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["fullName", "phoneNumber", "address", "birthDate", "program", "gender"]
+    },
+    "GlobalSettings": {
+      "title": "Pengaturan Global",
+      "description": "Konten teks website (Visi, Misi, Sejarah).",
+      "type": "object",
+      "properties": {
+        "aboutText": { "type": "string" },
+        "vision": { "type": "string" },
+        "mission": { "type": "string" },
+        "footerAddress": { "type": "string" }
+      }
+    },
+    "Permit": {
+      "title": "Surat Izin Santri",
+      "description": "Izin keluar/pulang/sakit santri.",
+      "type": "object",
+      "properties": {
+        "studentName": { "type": "string" },
+        "gender": { "type": "string" },
+        "type": { "type": "string" },
+        "reason": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "object" },
+        "authorizedBy": { "type": "string" }
+      },
+      "required": ["studentName", "type", "reason", "startDate"]
+    }
+  },
+  "firestore": {
+    "settings": {
+      "schema": "GlobalSettings",
+      "description": "Pengaturan konten global website."
+    },
+    "programs": {
+      "schema": "Program",
+      "description": "Koleksi program pendidikan pesantren."
+    },
+    "settings": {
+      "schema": "Setting",
+      "description": "Dokumen tunggal untuk pengaturan website."
+    },
+    "gallery": {
+      "schema": "GalleryImage",
+      "description": "Koleksi foto kegiatan."
+    },
+    "facilities": {
+      "schema": "Facility",
+      "description": "Daftar fasilitas pesantren."
+    },
+    "kesantrian": {
+      "schema": "StudentActivity",
+      "description": "Daftar kegiatan santri (ekstrakurikuler)."
+    },
+    "registrations": {
+      "schema": "Registration",
+      "description": "Koleksi data pendaftaran calon santri."
+    },
+    "permits": {
+      "schema": "Permit",
+      "description": "Koleksi surat izin santri."
+    },
+    "admins": {
+      "schema": "Admin",
+      "description": "Kontrol akses administratif."
+    }
+  }
+}
