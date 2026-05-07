@@ -46,7 +46,7 @@ export const createStaffAccount = async (username: string, pass: string) => {
     try {
       await deleteApp(secondaryApp);
     } catch (e) {
-      console.warn("Failed to delete secondary app:", e);
+      // Silent fail
     }
   }
 };

@@ -735,6 +735,7 @@ export default function RegistrationManager() {
   const [showModal, setShowModal] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [filterGender, setFilterGender] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const componentRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -877,7 +878,7 @@ export default function RegistrationManager() {
       </div>
 
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-white p-2 rounded-[2rem] border border-gray-100 shadow-sm">
-        <div className="flex flex-wrap p-1.5 gap-2">
+        <div className="flex flex-wrap p-1.5 gap-2 flex-1">
           {[
             { id: 'all', label: 'Semua Santri', color: 'bg-pesantren-dark', text: 'text-white' },
             { id: 'Laki-laki', label: 'Unit Putra', color: 'bg-blue-600', text: 'text-white' },
@@ -886,15 +887,28 @@ export default function RegistrationManager() {
             <button
               key={tab.id}
               onClick={() => setFilterGender(tab.id)}
-              className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                 filterGender === tab.id 
                   ? `${tab.color} ${tab.text} shadow-xl scale-105` 
-                  : 'text-gray-400 hover:bg-gray-50'
+                  : 'text-gray-400 hover:bg-gray-50 font-bold'
               }`}
             >
               {tab.label}
             </button>
           ))}
+        </div>
+
+        <div className="flex-1 w-full xl:max-w-md px-4">
+          <div className="relative group">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-pesantren-gold transition-colors" size={18} />
+            <input 
+              type="text"
+              placeholder="Cari Nama / NIK / NISN..."
+              className="w-full bg-gray-50 border border-gray-100 pl-12 pr-4 py-4 rounded-2xl focus:ring-4 focus:ring-pesantren-gold/10 outline-none transition-all text-sm font-bold"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
         
         <div className="flex items-center gap-3 w-full xl:w-auto px-4 pb-4 xl:pb-0">
@@ -953,7 +967,14 @@ export default function RegistrationManager() {
 
       <div className="grid grid-cols-1 gap-6">
         {registrations
-          .filter(reg => filterGender === 'all' || reg.gender === filterGender)
+          .filter(reg => {
+            const matchesGender = filterGender === 'all' || reg.gender === filterGender;
+            const matchesSearch = !searchQuery || 
+              reg.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              reg.nik?.includes(searchQuery) ||
+              reg.nisn?.includes(searchQuery);
+            return matchesGender && matchesSearch;
+          })
           .map((reg) => {
           const isVerified = reg.status === 'Verified';
           return (

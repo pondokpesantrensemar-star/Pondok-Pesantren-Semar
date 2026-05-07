@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useSettings } from "../hooks/useContent";
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 export default function Hero() {
   const { settings, loading } = useSettings();
@@ -84,11 +85,22 @@ export default function Hero() {
                   const el = document.getElementById('programs');
                   el?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="bg-pesantren-gold text-pesantren-dark px-14 py-6 rounded-2xl text-[11px] font-black tracking-[0.3em] uppercase transition-all shadow-2xl shadow-pesantren-gold/20 group flex items-center gap-4"
+                className="bg-pesantren-dark text-white px-10 py-6 rounded-2xl text-[11px] font-black tracking-[0.3em] uppercase transition-all shadow-2xl shadow-black/20 group flex items-center gap-4"
               >
                 Jelajahi Program
                 <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
               </motion.button>
+
+              <Link to="/daftar">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-pesantren-gold text-pesantren-dark px-14 py-6 rounded-2xl text-[11px] font-black tracking-[0.3em] uppercase transition-all shadow-2xl shadow-pesantren-gold/20 group flex items-center gap-4"
+                >
+                  Daftar Sekarang
+                  <Plus size={20} />
+                </motion.button>
+              </Link>
               
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map(idx => (

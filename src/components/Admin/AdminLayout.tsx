@@ -2,11 +2,12 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, BookOpen, Settings, LogOut, Home, 
-  Image as ImageIcon, Building, Users, 
+  Image as ImageIcon, Building, Users, ShieldCheck,
   ClipboardList, ArrowRight, X, FileText
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { Link, useLocation } from 'react-router-dom';
+import { useAdminRole } from '../../hooks/useContent';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -15,6 +16,8 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const { adminData } = useAdminRole();
+  const isSuperAdmin = auth.currentUser?.email?.toLowerCase().trim() === 'pondokpesantrensemar@gmail.com';
 
   const menuItems = [
     { name: 'Ringkasan', icon: LayoutDashboard, path: '/admin' },
@@ -26,6 +29,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: 'Galeri Foto', icon: ImageIcon, path: '/admin/gallery' },
     { name: 'Pengaturan Web', icon: Settings, path: '/admin/settings' },
   ];
+
+  if (isSuperAdmin) {
+    menuItems.push({ name: 'Akses Pengurus', icon: ShieldCheck, path: '/admin/settings' });
+  }
 
   return (
     <div className="min-h-screen bg-[#FBFCFD] flex font-sans overflow-hidden">
@@ -142,7 +149,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           
           <div className="flex items-center gap-6">
             <div className="hidden md:flex flex-col items-end">
-              <div className="text-xs font-black text-pesantren-dark uppercase tracking-widest">{auth.currentUser?.displayName || 'Chief Admin'}</div>
+              <div className="text-xs font-black text-pesantren-dark uppercase tracking-widest">
+                {adminData?.username || auth.currentUser?.displayName || 'Chief Admin'}
+              </div>
               <div className="text-[9px] text-pesantren-gold font-black uppercase tracking-widest mt-1 opacity-70 tabular-nums">ID: {auth.currentUser?.uid.slice(0, 8)}</div>
             </div>
             <div className="flex items-center gap-4">

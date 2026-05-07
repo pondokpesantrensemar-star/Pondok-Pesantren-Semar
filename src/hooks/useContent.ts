@@ -4,6 +4,7 @@ import { db, auth } from '../lib/firebase';
 
 export function useAdminRole() {
   const [role, setRole] = useState<string | null>(null);
+  const [adminData, setAdminData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,6 +17,7 @@ export function useAdminRole() {
       const email = auth.currentUser.email?.toLowerCase();
       if (email === 'pondokpesantrensemar@gmail.com') {
         setRole('all');
+        setAdminData({ username: 'Super Admin', access: 'all' });
         setLoading(false);
         return;
       }
@@ -23,9 +25,12 @@ export function useAdminRole() {
       try {
         const snap = await getDoc(doc(db, 'admins', email || ''));
         if (snap.exists()) {
-          setRole(snap.data().access || 'all');
+          const data = snap.data();
+          setRole(data.access || 'all');
+          setAdminData(data);
         } else {
-          setRole('all'); // Default to all if not found (might be legacy admin)
+          setRole('all');
+          setAdminData({ username: auth.currentUser.displayName || auth.currentUser.email || 'Admin' });
         }
       } catch (e) {
         console.error(e);
@@ -37,7 +42,7 @@ export function useAdminRole() {
     fetch();
   }, [auth.currentUser]);
 
-  return { role, loading };
+  return { role, adminData, loading };
 }
 
 export function useSettings() {

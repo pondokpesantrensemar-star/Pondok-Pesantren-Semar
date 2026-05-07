@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import { auth, db, createStaffAccount } from '../../lib/firebase';
-import { collection, doc, writeBatch, Timestamp, setDoc } from 'firebase/firestore';
+import React from 'react';
+import { auth } from '../../lib/firebase';
 import { motion } from 'motion/react';
 import { 
-  Users, BookOpen, Clock, Activity, Settings, 
+  Users, BookOpen, Settings, 
   Image as ImageIcon, Building, ClipboardList, 
-  ArrowRight, Heart, Star, TrendingUp, AlertCircle, Home, Plus, User, FileText
+  ArrowRight, Heart, Star, TrendingUp, User, FileText, Plus, ShieldCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStats, useRecentRegistrations } from '../../hooks/useContent';
@@ -18,49 +17,6 @@ import DigitalClock from '../DigitalClock';
 export default function DashboardHome() {
   const { stats, loading: statsLoading } = useStats();
   const { registrations, loading: regLoading } = useRecentRegistrations();
-  const [seeding, setSeeding] = React.useState(false);
-
-  const seedSampleData = async () => {
-    setSeeding(true);
-    try {
-      const batch = writeBatch(db);
-      const samples = [
-        {
-          fullName: 'Ahmad Fauzi',
-          parentName: 'Bpk. Slamet',
-          phoneNumber: '085195301987',
-          address: 'Jl. Merdeka No. 12, Semarang',
-          birthDate: '2010-05-15',
-          program: 'Tahfidz Al-Quran',
-          status: 'Pending',
-          createdAt: Timestamp.now()
-        },
-        {
-          fullName: 'Siti Aminah',
-          parentName: 'Ibu Fatimah',
-          phoneNumber: '085195301987',
-          address: 'Gg. Mawar No. 5, Yogyakarta',
-          birthDate: '2011-08-20',
-          program: 'Kitab Kuning',
-          status: 'Verified',
-          createdAt: Timestamp.now()
-        }
-      ];
-
-      samples.forEach(data => {
-        const docRef = doc(collection(db, 'registrations'));
-        batch.set(docRef, data);
-      });
-
-      await batch.commit();
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
-      alert('Gagal membuat data sampel. Coba lagi nanti.');
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const quickTools = [
     { name: 'Kelola Galeri Foto', desc: 'Tambah/Edit & Filter Foto', icon: ImageIcon, path: '/admin/gallery', color: 'text-pink-600', bg: 'bg-pink-100/50', action: 'Edit Foto' },
@@ -81,44 +37,16 @@ export default function DashboardHome() {
   ];
 
   const chartData = [
-    { name: 'Sen', val: 10 },
-    { name: 'Sel', val: 25 },
-    { name: 'Rab', val: 15 },
-    { name: 'Kam', val: 40 },
-    { name: 'Jum', val: 30 },
-    { name: 'Sab', val: stats.registrations + 20 },
-    { name: 'Min', val: stats.registrations + 35 },
+    { name: 'Sen', val: 0 },
+    { name: 'Sel', val: 0 },
+    { name: 'Rab', val: 0 },
+    { name: 'Kam', val: 0 },
+    { name: 'Jum', val: 0 },
+    { name: 'Sab', val: stats.registrations },
+    { name: 'Min', val: stats.registrations },
   ];
 
-  const [newStaffUser, setNewStaffUser] = useState('');
-  const [newStaffPass, setNewStaffPass] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState('all');
-  const [isCreating, setIsCreating] = useState(false);
-  const isSuperAdmin = auth.currentUser?.email?.toLowerCase() === 'pondokpesantrensemar@gmail.com';
-
-  const handleCreateStaff = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newStaffUser || !newStaffPass) return;
-    setIsCreating(true);
-    try {
-      await createStaffAccount(newStaffUser, newStaffPass);
-      await setDoc(doc(db, 'admins', `${newStaffUser.toLowerCase()}@pesantren.local`), {
-        username: newStaffUser,
-        addedBy: auth.currentUser?.email,
-        addedAt: new Date().toISOString(),
-        type: 'credential',
-        access: newStaffRole // all, putra, putri
-      });
-      alert(`Akun staff "${newStaffUser}" dengan akses "${newStaffRole}" berhasil dibuat!`);
-      setNewStaffUser('');
-      setNewStaffPass('');
-      setNewStaffRole('all');
-    } catch (error: any) {
-      alert(error.message || 'Gagal membuat akun');
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  const isSuperAdmin = auth.currentUser?.email?.toLowerCase().trim() === 'pondokpesantrensemar@gmail.com';
 
   return (
     <div className="space-y-8 pb-10 max-w-7xl mx-auto">
@@ -397,24 +325,5 @@ export default function DashboardHome() {
         </div>
       </div>
     </div>
-  );
-}
-
-function ShieldCheck({ size, className }: { size: number, className: string }) {
-  return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
   );
 }

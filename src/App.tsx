@@ -28,12 +28,12 @@ const AdminLayout = lazy(() => import("./components/Admin/AdminLayout"));
 const DashboardHome = lazy(() => import("./components/Admin/DashboardHome"));
 const ProgramManager = lazy(() => import("./components/Admin/ProgramManager"));
 const SettingManager = lazy(() => import("./components/Admin/SettingManager"));
-const AdminManager = lazy(() => import("./components/Admin/AdminManager"));
 const GalleryManager = lazy(() => import("./components/Admin/GalleryManager"));
 const FacilityManager = lazy(() => import("./components/Admin/FacilityManager"));
 const KesantrianManager = lazy(() => import("./components/Admin/KesantrianManager"));
 const PermitManager = lazy(() => import("./components/Admin/PermitManager"));
 const RegistrationManager = lazy(() => import("./components/Admin/RegistrationManager"));
+const PublicRegistration = lazy(() => import("./components/PublicRegistration"));
 
 const LoadingScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-pesantren-cream">
@@ -93,6 +93,7 @@ export default function App() {
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<PublicView />} />
+          <Route path="/daftar" element={<PublicRegistration />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={

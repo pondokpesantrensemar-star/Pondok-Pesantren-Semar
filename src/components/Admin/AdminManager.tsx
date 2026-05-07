@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, setDoc, deleteDoc, doc, query } from 'firebase/firestore';
+import { collection, getDocs, setDoc, deleteDoc, doc, query, writeBatch } from 'firebase/firestore';
 import { db, auth, createStaffAccount } from '../../lib/firebase';
 import { handleFirestoreError, OperationType } from '../../lib/firestoreUtils';
-import { ShieldCheck, UserPlus, Trash2, Mail, Star, Key, User as UserIcon } from 'lucide-react';
+import { ShieldCheck, UserPlus, Trash2, Mail, Star, Key, User as UserIcon, AlertTriangle, Eraser } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface AdminAccount {
@@ -22,7 +22,11 @@ export default function AdminManager() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<'all' | 'putra' | 'putri'>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   const [method, setMethod] = useState<'google' | 'username'>('google');
+
+  const SUPER_ADMIN = 'pondokpesantrensemar@gmail.com';
+  const isSuperAdmin = auth.currentUser?.email?.toLowerCase().trim() === SUPER_ADMIN;
 
   const path = 'admins';
 
@@ -368,6 +372,91 @@ export default function AdminManager() {
           )}
         </div>
       </div>
+
+      {isSuperAdmin && (
+        <div className="mt-20 border-t border-red-100 pt-16">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-serif font-bold text-red-600">Danger Zone (Super Admin Only)</h3>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Gunakan dengan sangat hati-hati!</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-red-100 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full translate-x-12 -translate-y-12 group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative z-10">
+                <h4 className="font-serif font-bold text-gray-800 mb-2">Hapus Semua Pendaftaran</h4>
+                <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+                  Semua data santri yang telah mendaftar (registrations) akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.
+                </p>
+                <button 
+                  onClick={async () => {
+                    if (!confirm('HAPUS SEMUA DATA PENDAFTARAN? Data tidak bisa dikembalikan.')) return;
+                    setIsCleaning(true);
+                    try {
+                      const snap = await getDocs(collection(db, 'registrations'));
+                      const batch = writeBatch(db);
+                      snap.docs.forEach(d => batch.delete(d.ref));
+                      await batch.commit();
+                      alert(`Berhasil menghapus ${snap.size} pendaftaran.`);
+                    } catch (e) {
+                      alert('Gagal menghapus data.');
+                    } finally {
+                      setIsCleaning(false);
+                    }
+                  }}
+                  disabled={isCleaning}
+                  className="flex items-center gap-3 px-6 py-3 bg-white border-2 border-red-200 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white hover:border-red-600 transition-all disabled:opacity-50"
+                >
+                  <Eraser size={16} /> {isCleaning ? 'Membersihkan...' : 'Kosongkan Pendaftaran'}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-red-100 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full translate-x-12 -translate-y-12 group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative z-10">
+                <h4 className="font-serif font-bold text-gray-800 mb-2">Hapus Semua Pengurus</h4>
+                <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+                  Semua akun admin/pengurus akan dihapus. Akses Anda sebagai Super Admin tetap dipertahankan.
+                </p>
+                <button 
+                  onClick={async () => {
+                    if (!confirm('HAPUS SEMUA AKSES ADMIN? (Kecuali Super Admin)')) return;
+                    setIsCleaning(true);
+                    try {
+                      const snap = await getDocs(collection(db, 'admins'));
+                      const batch = writeBatch(db);
+                      let count = 0;
+                      snap.docs.forEach(d => {
+                        if (d.id.toLowerCase().trim() !== SUPER_ADMIN) {
+                          batch.delete(d.ref);
+                          count++;
+                        }
+                      });
+                      await batch.commit();
+                      alert(`Berhasil menghapus ${count} pengurus.`);
+                      fetchAdmins();
+                    } catch (e) {
+                      alert('Gagal menghapus data.');
+                    } finally {
+                      setIsCleaning(false);
+                    }
+                  }}
+                  disabled={isCleaning}
+                  className="flex items-center gap-3 px-6 py-3 bg-white border-2 border-red-200 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white hover:border-red-600 transition-all disabled:opacity-50"
+                >
+                  <Trash2 size={16} /> {isCleaning ? 'Membersihkan...' : 'Hapus Semua Admin'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
