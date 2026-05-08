@@ -21,6 +21,7 @@ import Kesantrian from "./components/Kesantrian";
 import Footer from "./components/Footer";
 import { motion, useScroll, useSpring } from "motion/react";
 import { Phone, Loader2 } from "lucide-react";
+import { Toaster } from "react-hot-toast";
 
 // Admin Lazy Imports
 const AuthGuard = lazy(() => import("./components/Admin/AuthGuard"));
@@ -31,9 +32,8 @@ const SettingManager = lazy(() => import("./components/Admin/SettingManager"));
 const GalleryManager = lazy(() => import("./components/Admin/GalleryManager"));
 const FacilityManager = lazy(() => import("./components/Admin/FacilityManager"));
 const KesantrianManager = lazy(() => import("./components/Admin/KesantrianManager"));
-const PermitManager = lazy(() => import("./components/Admin/PermitManager"));
-const RegistrationManager = lazy(() => import("./components/Admin/RegistrationManager"));
-const PublicRegistration = lazy(() => import("./components/PublicRegistration"));
+const ActivityManager = lazy(() => import("./components/Admin/ActivityManager"));
+const StaffManager = lazy(() => import("./components/Admin/StaffManager"));
 
 const LoadingScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-pesantren-cream">
@@ -90,10 +90,32 @@ export default function App() {
 
   return (
     <Router>
+      <Toaster 
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#1A3C34',
+            color: '#fff',
+            borderRadius: '1.5rem',
+            padding: '16px 24px',
+            fontSize: '12px',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#D4AF37',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<PublicView />} />
-          <Route path="/daftar" element={<PublicRegistration />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={
@@ -117,13 +139,6 @@ export default function App() {
               </AdminLayout>
             </AuthGuard>
           } />
-          <Route path="/admin/registrations" element={
-            <AuthGuard>
-              <AdminLayout>
-                <RegistrationManager />
-              </AdminLayout>
-            </AuthGuard>
-          } />
           <Route path="/admin/facilities" element={
             <AuthGuard>
               <AdminLayout>
@@ -138,10 +153,17 @@ export default function App() {
               </AdminLayout>
             </AuthGuard>
           } />
-          <Route path="/admin/permits" element={
+          <Route path="/admin/activities" element={
             <AuthGuard>
               <AdminLayout>
-                <PermitManager />
+                <ActivityManager />
+              </AdminLayout>
+            </AuthGuard>
+          } />
+          <Route path="/admin/staff" element={
+            <AuthGuard>
+              <AdminLayout>
+                <StaffManager />
               </AdminLayout>
             </AuthGuard>
           } />

@@ -1,329 +1,387 @@
-import React from 'react';
-import { auth } from '../../lib/firebase';
-import { motion } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Users, BookOpen, Settings, 
-  Image as ImageIcon, Building, ClipboardList, 
-  ArrowRight, Heart, Star, TrendingUp, User, FileText, Plus, ShieldCheck
+  Users, UserCheck, FileText, 
+  ArrowRight, Heart, User, Plus, ShieldCheck,
+  Activity, Printer, Clock, Filter, TrendingUp, PieChart as PieIcon,
+  Calendar
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useStats, useRecentRegistrations } from '../../hooks/useContent';
+import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useStats } from '../../hooks/useContent';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import DigitalClock from '../DigitalClock';
+import { useAdminRole } from '../../hooks/useContent';
+
+interface Student {
+  id: string;
+  name: string;
+  gender: 'Laki-laki' | 'Perempuan';
+  status: 'Aktif' | 'Alumni' | 'Keluar';
+}
+
+interface Permit {
+  id: string;
+  studentName: string;
+  reason: string;
+  status: string;
+  createdAt: any;
+}
+
+interface ActivityItem {
+  id: string;
+  title: string;
+  schedule: string;
+  imageUrl: string;
+  description: string;
+}
+
+const DashboardLoader = () => (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm"
+  >
+    <motion.div
+       animate={{ 
+         scale: [1, 1.2, 1], 
+         rotate: [0, 180, 0],
+         borderRadius: ["20%", "50%", "20%"]
+       }}
+       transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+       className="w-16 h-16 border-4 border-pesantren-gold border-t-transparent"
+    />
+  </motion.div>
+);
 
 export default function DashboardHome() {
   const { stats, loading: statsLoading } = useStats();
-  const { registrations, loading: regLoading } = useRecentRegistrations();
+  const { role, adminData } = useAdminRole();
+  const [recentPermits, setRecentPermits] = useState<Permit[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [studentSummary, setStudentSummary] = useState({
+    putra: 0,
+    putri: 0,
+    active: 0,
+    alumni: 0
+  });
 
-  const quickTools = [
-    { name: 'Kelola Galeri Foto', desc: 'Tambah/Edit & Filter Foto', icon: ImageIcon, path: '/admin/gallery', color: 'text-pink-600', bg: 'bg-pink-100/50', action: 'Edit Foto' },
-    { name: 'Pengaturan Website', desc: 'Logo, Kontak & Alamat', icon: Settings, path: '/admin/settings', color: 'text-purple-600', bg: 'bg-purple-100/50', action: 'Update Identitas' },
-    { name: 'Program Pendidikan', desc: 'Kurikulum & Jadwal', icon: BookOpen, path: '/admin/programs', color: 'text-blue-600', bg: 'bg-blue-100/50', action: 'Edit Program' },
-    { name: 'Fasilitas Santri', desc: 'Asrama, Gedung & Lab', icon: Building, path: '/admin/facilities', color: 'text-amber-600', bg: 'bg-amber-100/50', action: 'Kelola Sarana' },
-    { name: 'Kesantrian', desc: 'Eskul & Kegiatan', icon: Users, path: '/admin/kesantrian', color: 'text-pesantren-green', bg: 'bg-emerald-100/50', action: 'Update Kegiatan' },
-    { name: 'Surat Izin Santri', desc: 'Pulang, Sakit, Kunjungan', icon: FileText, path: '/admin/permits', color: 'text-indigo-600', bg: 'bg-indigo-100/50', action: 'Buat Surat' },
-    { name: 'Pendaftar Baru', desc: 'Approval Calon Santri', icon: ClipboardList, path: '/admin/registrations', color: 'text-emerald-600', bg: 'bg-emerald-100/50', action: 'Data Santri' },
+  const isSuperAdmin = role === 'all' || role === 'super';
+
+  useEffect(() => {
+    const fetchDetailedStats = async () => {
+      try {
+        // Fetch Students for summary
+        const studentSnap = await getDocs(collection(db, 'students'));
+        const students = studentSnap.docs.map(d => d.data() as Student);
+        
+        setStudentSummary({
+          putra: students.filter(s => s.gender === 'Laki-laki').length,
+          putri: students.filter(s => s.gender === 'Perempuan').length,
+          active: students.filter(s => s.status === 'Aktif').length,
+          alumni: students.filter(s => s.status === 'Alumni').length
+        });
+
+        // Fetch Recent Permits
+        const permitSnap = await getDocs(query(
+          collection(db, 'permits'), 
+          orderBy('createdAt', 'desc'), 
+          limit(5)
+        ));
+        setRecentPermits(permitSnap.docs.map(d => ({ 
+          id: d.id, 
+          ...d.data() 
+        } as Permit)));
+
+        // Fetch Activities
+        const activitySnap = await getDocs(query(collection(db, 'kesantrian'), limit(3)));
+        setActivities(activitySnap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        } as ActivityItem)));
+      } catch (e) {
+        console.error("Error fetching dashboard details:", e);
+      }
+    };
+
+    fetchDetailedStats();
+  }, []);
+
+  const studentStats = [
+    { name: 'Total Santri', value: stats.students, icon: Users, color: 'text-pesantren-dark', bg: 'bg-pesantren-dark/5' },
+    { name: 'Santri Putra', value: studentSummary.putra, icon: UserCheck, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { name: 'Santri Putri', value: studentSummary.putri, icon: Heart, color: 'text-rose-600', bg: 'bg-rose-50' },
+    { name: 'Izin Aktif', value: stats.permits, icon: FileText, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
-  const statCards = [
-    { name: 'Santri Putra', value: stats.putra, icon: User, color: 'text-blue-600', trend: 'Laki-laki', description: 'Total santri putra' },
-    { name: 'Santri Putri', value: stats.putri, icon: Heart, color: 'text-pink-600', trend: 'Perempuan', description: 'Total santri putri' },
-    { name: 'Data Santri', value: stats.registrations, icon: ClipboardList, color: 'text-emerald-600', trend: 'Santri Baru', description: 'Jumlah calon santri masuk' },
-    { name: 'Surat Izin', value: stats.permits, icon: FileText, color: 'text-indigo-600', trend: 'Kesantrian', description: 'Surat izin diterbitkan' },
-    { name: 'Galeri', value: stats.gallery, icon: ImageIcon, color: 'text-orange-600', trend: 'Dokumentasi', description: 'Foto & Momen' },
+  const genderData = [
+    { name: 'Putra', value: studentSummary.putra, color: '#2563eb' },
+    { name: 'Putri', value: studentSummary.putri, color: '#e11d48' }
   ];
 
-  const chartData = [
-    { name: 'Sen', val: 0 },
-    { name: 'Sel', val: 0 },
-    { name: 'Rab', val: 0 },
-    { name: 'Kam', val: 0 },
-    { name: 'Jum', val: 0 },
-    { name: 'Sab', val: stats.registrations },
-    { name: 'Min', val: stats.registrations },
+  const statusData = [
+    { name: 'Aktif', value: studentSummary.active },
+    { name: 'Alumni', value: studentSummary.alumni }
   ];
-
-  const isSuperAdmin = auth.currentUser?.email?.toLowerCase().trim() === 'pondokpesantrensemar@gmail.com';
 
   return (
-    <div className="space-y-8 pb-10 max-w-7xl mx-auto">
-      {/* Streamlined Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group">
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="px-3 py-1 bg-green-50 text-pesantren-green text-[10px] font-black uppercase tracking-[0.2em] rounded-full flex items-center gap-2">
-               <div className="w-1.5 h-1.5 rounded-full bg-pesantren-green animate-pulse" />
-               System Live
-            </span>
-          </div>
-          <h2 className="text-2xl md:text-5xl font-serif font-bold text-pesantren-dark tracking-tight leading-none mb-4">
-            Ahlan wa Sahlan, <span className="engraved-text italic px-2">{auth.currentUser?.displayName?.split(' ')[0] || 'Admin'}</span>
+    <div className="space-y-10 pb-20 max-w-7xl mx-auto px-4 md:px-0 mt-8 text-left">
+      <AnimatePresence>
+        {statsLoading && <DashboardLoader />}
+      </AnimatePresence>
+      
+      {/* Header with Glassmorphism touch */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-4">
+        <div className="relative">
+          <div className="absolute -left-4 top-0 w-1 h-20 bg-pesantren-gold rounded-full opacity-50" />
+          <h2 className="text-4xl md:text-6xl font-serif font-black text-pesantren-dark dark:text-white mb-3 tracking-tight">
+            Dashboard <span className="text-pesantren-gold italic">Santri</span>
           </h2>
-          <div className="flex items-center gap-6 text-gray-400">
-             <DigitalClock className="scale-90 origin-left" showDate />
+          <div className="flex items-center gap-6 text-gray-400 dark:text-gray-500">
+             <DigitalClock className="scale-110 origin-left" showDate />
+             <div className="w-1.5 h-1.5 rounded-full bg-pesantren-gold/30" />
+             <span className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-500 flex items-center gap-2.5">
+               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+               Live Monitoring
+             </span>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-4 relative z-10 w-full md:w-auto">
-          <Link to="/admin/registrations" className="flex-1 md:flex-none px-6 py-4 md:px-10 md:py-5 bg-pesantren-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/20 hover:scale-105 transition-all flex items-center justify-center gap-3">
-             <ClipboardList size={18} />
-             Data Santri
-          </Link>
-          <Link to="/admin/gallery?action=add" className="flex-1 md:flex-none px-6 py-4 md:px-10 md:py-5 border-2 border-pesantren-gold text-pesantren-gold rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-pesantren-gold hover:text-white transition-all flex items-center justify-center gap-3">
-             <Plus size={18} />
-             Tambah Foto
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <Link to="/admin/kesantrian" className="flex-1 md:flex-none px-10 py-5 bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark rounded-[2rem] text-[11px] font-black uppercase tracking-[0.25em] shadow-2xl hover:shadow-pesantren-gold/20 hover:scale-105 transition-all flex items-center justify-center gap-3 border border-white/10">
+             <Plus size={18} /> Registrasi Santri
           </Link>
         </div>
-
-        {/* Decorative elements */}
-        <div className="absolute -right-20 -top-20 w-80 h-80 bg-pesantren-gold/5 rounded-full blur-[100px] group-hover:scale-110 transition-transform duration-1000"></div>
-        <div className="absolute top-0 left-1/2 w-px h-full bg-gradient-to-b from-transparent via-gray-50 to-transparent" />
       </div>
 
-      {/* Main Grid: Stats & Chart */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        
-        {/* Stats Column */}
-        <div className="xl:col-span-4 space-y-4">
-          <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] mb-4 flex items-center gap-3 px-2">
-             Key Metrics
-             <div className="flex-1 h-px bg-gray-100" />
-          </div>
-          <div className="grid grid-cols-1 gap-4">
-            {statCards.map((stat, i) => (
-              <motion.div
-                key={stat.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white p-6 rounded-3xl border border-gray-50 shadow-sm hover:shadow-xl hover:shadow-gray-100/50 transition-all group flex items-center gap-6"
-              >
-                <div className={`w-14 h-14 rounded-2xl ${stat.color.replace('text', 'bg').replace('-600', '-50')} ${stat.color} flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform`}>
-                  <stat.icon size={24} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{stat.name}</h4>
-                  <div className="text-2xl font-black text-pesantren-dark leading-none tabular-nums flex items-baseline gap-2">
-                    {statsLoading ? '...' : stat.value}
-                    <span className="text-[9px] font-bold text-pesantren-green bg-green-50 px-2 py-0.5 rounded-full uppercase scale-75 origin-left">Live</span>
-                  </div>
-                </div>
-                <ArrowRight size={16} className="text-gray-200 group-hover:text-pesantren-gold group-hover:translate-x-1 transition-all" />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* Analytics & Quick Access Column */}
-        <div className="xl:col-span-8 space-y-8">
-           {/* Chart */}
-           <div className="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-gray-50 shadow-sm relative overflow-hidden h-[300px] md:h-[400px] flex flex-col">
-              <div className="flex items-center justify-between mb-8 relative z-10">
-                <div>
-                  <h3 className="text-lg md:text-xl font-serif font-bold text-pesantren-dark">Tren Pendaftaran</h3>
-                  <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black mt-1">Mingguan • Real-time Data</p>
-                </div>
-                <div className="flex items-center gap-2">
-                   <div className="w-3 h-3 rounded-full bg-pesantren-gold" />
-                   <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Santri Baru</span>
+      {/* Stats Cards - Upgraded to Prestige */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        {studentStats.map((stat, i) => (
+          <motion.div
+            key={stat.name}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className={`prestige-card p-10 hover:scale-[1.02] transition-all group cursor-default`}
+          >
+            <div className="flex flex-col gap-8">
+              <div className={`w-16 h-16 rounded-[1.5rem] ${stat.bg} ${stat.color} flex items-center justify-center group-hover:rotate-6 transition-transform shadow-sm`}>
+                <stat.icon size={28} />
+              </div>
+              <div>
+                <div className="text-[11px] font-black text-pesantren-muted uppercase tracking-[0.25em] mb-2">{stat.name}</div>
+                <div className="text-5xl font-black text-pesantren-dark dark:text-white tabular-nums tracking-tighter">
+                  {statsLoading ? '...' : stat.value}
                 </div>
               </div>
-              
-              <div className="flex-1 w-full relative z-10">
+              <div className="pt-2 border-t border-pesantren-gold/10 flex items-center gap-2">
+                <TrendingUp size={14} className="text-emerald-500" />
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Database Terkoneksi</span>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        {/* Main Content Area */}
+        <div className="lg:col-span-8 space-y-10">
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="prestige-card p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-lg font-serif font-black text-pesantren-dark dark:text-white uppercase tracking-wider">Rasio Gender</h4>
+                <PieIcon size={18} className="text-pesantren-gold" />
+              </div>
+              <div className="h-64 relative">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#c5a059" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#c5a059" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
+                  <PieChart>
+                    <Pie
+                      data={genderData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {genderData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#1a1a1a', color: '#fff', fontSize: '10px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-black text-pesantren-dark dark:text-white">{stats.students}</span>
+                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Total</span>
+                </div>
+              </div>
+              <div className="flex justify-center gap-8 mt-4">
+                {genderData.map(item => (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="prestige-card p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-lg font-serif font-black text-pesantren-dark dark:text-white uppercase tracking-wider">Distribusi Status</h4>
+                <Activity size={18} className="text-pesantren-gold" />
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={statusData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600, letterSpacing: '0.1em' }} 
-                      dy={15} 
+                      tick={{ fontSize: 10, fontWeight: 800, fill: '#94a3b8' }} 
                     />
                     <YAxis hide />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 'bold', padding: '12px 20px' }} 
+                    <RechartsTooltip 
+                      cursor={{fill: 'transparent'}}
+                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#1a1a1a', color: '#fff', fontSize: '10px' }}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="val" 
-                      stroke="#c5a059" 
-                      strokeWidth={4} 
-                      fillOpacity={1} 
-                      fill="url(#colorVal)" 
-                      animationDuration={2000}
-                    />
-                  </AreaChart>
+                    <Bar dataKey="value" fill="#c5a059" radius={[10, 10, 0, 0]} barSize={40} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
-              
-              {/* Chart Decoration */}
-              <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-50/30 to-transparent pointer-events-none" />
-           </div>
-
-           {/* Quick Access */}
-           <div className="bg-pesantren-dark p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
-              <div className="flex items-center justify-between mb-8 relative z-10">
-                 <h3 className="text-xl font-serif font-bold text-white">Modul Operasional</h3>
-                 <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-pesantren-gold">
-                    <TrendingUp size={20} />
-                 </div>
-              </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
-                {quickTools.slice(0, 4).map((tool, i) => (
-                  <Link key={tool.name} to={tool.path}>
-                    <motion.div 
-                      whileHover={{ y: -5, backgroundColor: 'rgba(255,255,255,0.05)' }}
-                      className="bg-white/5 p-6 rounded-2xl border border-white/5 transition-all text-center flex flex-col items-center gap-4 group/item"
-                    >
-                      <div className={`w-14 h-14 rounded-full ${tool.bg} ${tool.color} flex items-center justify-center shrink-0 shadow-lg group-hover/item:rotate-12 transition-transform`}>
-                        <tool.icon size={24} />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-white/80 group-hover/item:text-pesantren-gold transition-colors">{tool.name.split(' ').pop()}</div>
-                        <p className="text-[8px] text-white/20 uppercase tracking-[0.2em] mt-1">Open Module</p>
-                      </div>
-                    </motion.div>
-                  </Link>
-                ))}
-              </div>
-              
-              {/* Background Glow */}
-              <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-pesantren-gold/5 rounded-full blur-[100px]" />
-           </div>
-        </div>
-      </div>
-
-      {/* Bottom Row: Recent Data & Staff Management */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Recent Table */}
-        <div className="lg:col-span-8 bg-white rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-          <div className="px-6 md:px-10 py-6 md:py-8 border-b border-gray-50 flex justify-between items-center">
-            <div>
-              <h3 className="text-lg md:text-xl font-serif font-bold text-pesantren-dark">Status Pendaftaran</h3>
-              <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black mt-1">Entri terbaru santri baru</p>
             </div>
-            <Link to="/admin/registrations" className="flex items-center gap-2 group">
-               <span className="text-[10px] font-black uppercase tracking-widest text-pesantren-gold group-hover:text-pesantren-green transition-colors">Semua</span>
-               <ArrowRight size={14} className="text-pesantren-gold group-hover:translate-x-1 transition-transform" />
-            </Link>
           </div>
-          
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-50 bg-gray-50/20">
-                  <th className="text-left px-6 md:px-10 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Identitas</th>
-                  <th className="text-left px-4 md:px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Program</th>
-                  <th className="text-right px-6 md:px-10 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {regLoading ? (
-                  <tr><td colSpan={3} className="text-center py-20 text-xs font-bold text-gray-300 italic">Sinkronisasi...</td></tr>
-                ) : registrations.length > 0 ? (
-                  registrations.slice(0, 6).map((reg) => (
-                    <tr key={reg.id} className="hover:bg-gray-50 transition-colors group">
-                      <td className="px-6 md:px-10 py-4">
-                        <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-[10px] font-black">
-                              {reg.fullName.charAt(0)}
-                           </div>
-                           <div>
-                              <div className="text-xs font-black text-pesantren-dark group-hover:text-pesantren-gold transition-colors">{reg.fullName}</div>
-                              <div className="text-[9px] text-gray-400 font-mono tracking-tighter mt-0.5">{new Date(reg.createdAt?.seconds * 1000).toLocaleDateString()}</div>
-                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 md:px-6 py-4">
-                        <div className="flex flex-col">
-                           <span className="text-[10px] font-black text-pesantren-dark uppercase tracking-tight">{reg.program}</span>
-                           <span className="text-[9px] text-gray-400 uppercase tracking-widest">{reg.gender === 'Laki-laki' ? 'Putra' : 'Putri'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 md:px-10 py-4 text-right">
-                        <span className={`px-2 py-1 md:px-4 md:py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm ${
-                          reg.status === 'Verified' ? 'bg-green-500 text-white' : 'bg-pesantren-gold text-white'
-                        }`}>
-                          {reg.status}
+
+          <div className="prestige-card p-10 overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+              <div>
+                <h3 className="text-2xl font-serif font-black text-pesantren-dark dark:text-white">Izin Santri Terbaru</h3>
+                <p className="text-[10px] text-pesantren-muted uppercase tracking-[0.2em] font-bold mt-1.5">Arsip Perizinan Real-Time</p>
+              </div>
+              <Link to="/admin/kesantrian" className="px-6 py-3 border border-pesantren-gold/30 text-[10px] font-black text-pesantren-gold uppercase tracking-[0.2em] rounded-full hover:bg-pesantren-gold hover:text-white transition-all">Lihat Selengkapnya</Link>
+            </div>
+
+            <div className="space-y-4">
+              {recentPermits.length > 0 ? recentPermits.map((permit, i) => (
+                <motion.div 
+                  key={permit.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="flex items-center justify-between p-8 bg-pesantren-cream dark:bg-slate-800/30 rounded-[2rem] border border-transparent hover:border-pesantren-gold/30 hover:shadow-xl hover:shadow-pesantren-gold/5 transition-all group"
+                >
+                  <div className="flex items-center gap-8">
+                    <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-pesantren-gold shadow-sm group-hover:scale-110 transition-transform">
+                      <Clock size={22} />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-pesantren-dark dark:text-white text-lg tracking-tight">{permit.studentName}</h4>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[10px] text-pesantren-muted font-black uppercase tracking-widest bg-white dark:bg-slate-700 px-3 py-1 rounded-full border border-pesantren-gold/10">{permit.reason}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-3 text-right">
+                    <div className="flex items-center gap-2">
+                       <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
+                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Disetujui</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                      {permit.createdAt?.toDate ? permit.createdAt.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long' }) : 'Hari Ini'}
+                    </span>
+                  </div>
+                </motion.div>
+              )) : (
+                <div className="py-24 text-center opacity-30">
+                  <FileText size={64} className="mx-auto mb-6 text-pesantren-gold" />
+                  <p className="text-sm font-black uppercase tracking-[0.3em]">Arsip Kosong</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Daily Activities Section */}
+          {isSuperAdmin && (
+            <div className="prestige-card p-10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div>
+                  <h3 className="text-2xl font-serif font-black text-pesantren-dark dark:text-white">Kegiatan Harian</h3>
+                  <p className="text-[10px] text-pesantren-muted uppercase tracking-[0.2em] font-bold mt-1.5">Agenda & Rutinitas Santri</p>
+                </div>
+                <Link to="/admin/activities" className="px-6 py-3 border border-pesantren-gold/30 text-[10px] font-black text-pesantren-gold uppercase tracking-[0.2em] rounded-full hover:bg-pesantren-gold hover:text-white transition-all">Manajemen</Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {activities.length > 0 ? activities.map((activity, i) => (
+                  <motion.div
+                    key={activity.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="group bg-pesantren-cream dark:bg-slate-800/30 rounded-[2rem] overflow-hidden border border-transparent hover:border-pesantren-gold/30 transition-all shadow-sm flex flex-col"
+                  >
+                    <div className="aspect-[4/3] relative overflow-hidden">
+                      <img 
+                        src={activity.imageUrl || 'https://images.unsplash.com/photo-1541829070764-84a7d30dee6b?q=80&w=2070&auto=format&fit=crop'} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        alt={activity.title}
+                      />
+                      <div className="absolute top-4 left-4">
+                        <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-widest text-pesantren-dark shadow-lg">
+                          {activity.schedule}
                         </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="text-center py-20">
-                       <div className="flex flex-col items-center gap-3 opacity-20">
-                          <ClipboardList size={40} />
-                          <p className="text-[10px] font-black uppercase tracking-[0.3em]">Basis Data Kosong</p>
-                       </div>
-                    </td>
-                  </tr>
+                      </div>
+                    </div>
+                    <div className="p-6 flex-1 flex flex-col">
+                      <h4 className="font-serif font-bold text-lg text-pesantren-dark dark:text-white mb-2 line-clamp-1">{activity.title}</h4>
+                      <p className="text-[10px] text-pesantren-muted line-clamp-2 leading-relaxed">{activity.description}</p>
+                    </div>
+                  </motion.div>
+                )) : (
+                  <div className="col-span-full py-12 text-center opacity-30">
+                    <Calendar size={48} className="mx-auto mb-4 text-pesantren-gold" />
+                    <p className="text-xs font-black uppercase tracking-widest">Belum ada kegiatan</p>
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Staff Management Column */}
-        <div className="lg:col-span-4 space-y-6">
-           {isSuperAdmin && (
-             <Link 
-               to="/admin/settings" 
-               className="prestige-card p-10 flex flex-col h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] group hover:scale-[1.02] transition-all"
-             >
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 bg-pesantren-dark text-pesantren-gold rounded-2xl flex items-center justify-center shadow-2xl group-hover:rotate-12 transition-transform">
-                    <ShieldCheck size={24} className="text-pesantren-gold" />
+        {/* Info Area */}
+        <div className="lg:col-span-4 space-y-10">
+          <div className="prestige-card p-10">
+            <h4 className="text-lg font-serif font-black text-pesantren-dark dark:text-white uppercase tracking-wider mb-8">Akses Cepat</h4>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Cetak', icon: Printer, path: '/admin/kesantrian', color: 'bg-amber-500' },
+                { label: 'Saring', icon: Filter, path: '/admin/kesantrian', color: 'bg-indigo-500' },
+                { label: 'Analisis', icon: TrendingUp, path: '/admin/kesantrian', color: 'bg-emerald-500' },
+                { label: 'Export', icon: FileText, path: '/admin/kesantrian', color: 'bg-rose-500' },
+              ].map((action, i) => (
+                <Link key={i} to={action.path} className="group">
+                  <div className="bg-pesantren-cream dark:bg-slate-800/50 p-6 rounded-3xl flex flex-col items-center gap-3 transition-all hover:bg-pesantren-dark dark:hover:bg-pesantren-gold group-hover:-translate-y-1">
+                    <div className={`w-10 h-10 rounded-xl ${action.color} text-white flex items-center justify-center group-hover:bg-white group-hover:text-pesantren-dark transition-colors shadow-lg`}>
+                      <action.icon size={20} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-pesantren-muted group-hover:text-white dark:group-hover:text-pesantren-dark transition-colors">{action.label}</span>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-serif font-bold text-pesantren-dark leading-none">Manajemen Pengurus</h3>
-                    <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black mt-1">Satu Akses Terpadu</p>
-                  </div>
-                </div>
-                
-                <div className="flex-1 space-y-6">
-                   <p className="text-xs text-gray-400 font-medium leading-relaxed">
-                     Pengaturan akun administrator kini telah disatukan di menu <strong>Pengaturan Web</strong> untuk akses yang lebih rapi dan aman.
-                   </p>
-                   
-                   <div className="p-6 bg-pesantren-gold/10 rounded-2xl border border-pesantren-gold/20">
-                      <div className="flex items-center gap-3 text-pesantren-dark font-black text-[10px] uppercase tracking-widest">
-                         <Star size={16} className="text-pesantren-gold" />
-                         Fitur Multi-Akses
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">Kelola pendaftaran santri khusus unit Putra atau Putri dengan hak akses terbatas.</p>
-                   </div>
-                </div>
-
-                <div className="mt-8 pt-8 border-t border-gray-50 flex items-center justify-between group-hover:text-pesantren-gold transition-colors">
-                   <span className="text-[10px] font-black uppercase tracking-widest font-bold">Buka Menu Pengaturan</span>
-                   <ArrowRight size={16} />
-                </div>
-             </Link>
-           )}
-
-           {!isSuperAdmin && (
-             <div className="bg-pesantren-green p-10 rounded-[2.5rem] text-white flex flex-col justify-center items-center text-center space-y-4">
-                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
-                   <Star size={32} className="text-pesantren-gold" />
-                </div>
-                <h4 className="text-xl font-serif font-bold italic">Khidmat Terbaik</h4>
-                <p className="text-xs text-white/60 leading-relaxed font-light">Gunakan portal ini dengan bijak untuk memajukan pendidikan umat.</p>
-             </div>
-           )}
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+

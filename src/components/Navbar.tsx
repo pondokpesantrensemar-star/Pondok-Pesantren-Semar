@@ -62,21 +62,6 @@ export default function Navbar() {
             ))}
             
             <div className="flex items-center gap-3">
-              <Link to="/daftar">
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-8 py-3 rounded-xl shadow-lg transition-all duration-500 font-black uppercase tracking-[0.2em] flex items-center gap-2 ${
-                    isScrolled 
-                      ? 'bg-pesantren-gold text-pesantren-dark shadow-pesantren-gold/10' 
-                      : 'bg-white text-pesantren-dark'
-                  }`}
-                >
-                  <Plus size={14} />
-                  Daftar Santri
-                </motion.button>
-              </Link>
-
               <Link to="/admin">
                 <motion.button 
                   whileHover={{ scale: 1.02 }}
@@ -123,13 +108,6 @@ export default function Navbar() {
                 {link.name}
               </a>
             ))}
-            <Link
-              to="/daftar"
-              className="bg-pesantren-green text-white px-7 py-4 rounded-xl text-[10px] font-black tracking-widest text-center shadow-lg shadow-pesantren-green/20"
-              onClick={() => setIsOpen(false)}
-            >
-              DAFTAR SANTRI BARU
-            </Link>
             <Link
               to="/admin"
               className="bg-pesantren-gold text-pesantren-dark px-7 py-4 rounded-xl text-[10px] font-black tracking-widest text-center shadow-lg shadow-pesantren-gold/20"

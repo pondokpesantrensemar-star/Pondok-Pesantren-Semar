@@ -17,8 +17,12 @@
 
 @layer base {
   body {
-    @apply antialiased min-h-screen selection:bg-pesantren-gold selection:text-white;
+    @apply antialiased min-h-screen selection:bg-pesantren-gold selection:text-white bg-pesantren-cream dark:bg-slate-950 transition-colors duration-300;
   }
+}
+
+.dark .prestige-card {
+  @apply bg-slate-900/50 border-white/5;
 }
 
 .public-landing {

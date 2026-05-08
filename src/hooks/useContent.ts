@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, getDoc, query, orderBy } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db } from '../lib/firebase';
+import { internalAuth } from '../lib/internalAuth';
 
 export function useAdminRole() {
   const [role, setRole] = useState<string | null>(null);
@@ -9,38 +10,36 @@ export function useAdminRole() {
 
   useEffect(() => {
     const fetch = async () => {
-      if (!auth.currentUser) {
+      const user = internalAuth.getUser();
+      if (!user) {
+        setRole('none');
+        setAdminData(null);
         setLoading(false);
         return;
       }
       
-      const email = auth.currentUser.email?.toLowerCase();
-      if (email === 'pondokpesantrensemar@gmail.com') {
-        setRole('all');
-        setAdminData({ username: 'Super Admin', access: 'all' });
-        setLoading(false);
-        return;
-      }
-
       try {
-        const snap = await getDoc(doc(db, 'admins', email || ''));
+        const snap = await getDoc(doc(db, 'admins', user.id));
         if (snap.exists()) {
           const data = snap.data();
           setRole(data.access || 'all');
           setAdminData(data);
         } else {
-          setRole('all');
-          setAdminData({ username: auth.currentUser.displayName || auth.currentUser.email || 'Admin' });
+          // Fallback to local session data if doc is missing but session exists
+          setRole(user.access);
+          setAdminData(user);
         }
       } catch (e) {
-        console.error(e);
-        setRole('all');
+        console.error("Role Check Error:", e);
+        // Fallback to local session data
+        setRole(user.access);
+        setAdminData(user);
       } finally {
         setLoading(false);
       }
     };
     fetch();
-  }, [auth.currentUser]);
+  }, []);
 
   return { role, adminData, loading };
 }
@@ -154,82 +153,30 @@ export function useKesantrian() {
   return { activities, loading };
 }
 
-export function useRecentRegistrations() {
-  const { role, loading: roleLoading } = useAdminRole();
-  const [registrations, setRegistrations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (roleLoading) return;
-
-    const fetch = async () => {
-      try {
-        const q = query(collection(db, 'registrations'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        let data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        if (role === 'putra') {
-          data = data.filter((r: any) => r.gender === 'Laki-laki');
-        } else if (role === 'putri') {
-          data = data.filter((r: any) => r.gender === 'Perempuan');
-        }
-
-        setRegistrations(data.slice(0, 5));
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
-  }, [role, roleLoading]);
-
-  return { registrations, loading };
-}
 export function useStats() {
-  const { role, loading: roleLoading } = useAdminRole();
   const [stats, setStats] = useState({
     programs: 0,
     facilities: 0,
     gallery: 0,
-    registrations: 0,
     kesantrian: 0,
     permits: 0,
-    putra: 0,
-    putri: 0
+    students: 0
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (roleLoading) return;
-
     const fetch = async () => {
       try {
-        const collections = ['programs', 'facilities', 'gallery', 'registrations', 'kesantrian', 'permits'];
+        const collections = ['programs', 'facilities', 'gallery', 'kesantrian', 'permits', 'students'];
         const results = await Promise.all(collections.map(c => getDocs(collection(db, c))));
         
-        // Calculate gender distribution from registrations (results[3])
-        const registrationDocs = results[3].docs;
-        let filteredRegs = registrationDocs;
-        
-        if (role === 'putra') {
-          filteredRegs = registrationDocs.filter(doc => doc.data().gender === 'Laki-laki');
-        } else if (role === 'putri') {
-          filteredRegs = registrationDocs.filter(doc => doc.data().gender === 'Perempuan');
-        }
-
-        const putra = registrationDocs.filter(doc => doc.data().gender === 'Laki-laki').length;
-        const putri = registrationDocs.filter(doc => doc.data().gender === 'Perempuan').length;
-
         setStats({
           programs: results[0].size,
           facilities: results[1].size,
           gallery: results[2].size,
-          registrations: filteredRegs.length,
-          kesantrian: results[4].size,
-          permits: results[5].size,
-          putra,
-          putri
+          kesantrian: results[3].size,
+          permits: results[4].size,
+          students: results[5].size
         });
       } catch (e) {
         console.error(e);
@@ -238,7 +185,7 @@ export function useStats() {
       }
     };
     fetch();
-  }, [role, roleLoading]);
+  }, []);
 
   return { stats, loading };
 }

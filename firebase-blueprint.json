@@ -74,42 +74,6 @@
       },
       "required": ["title", "description"]
     },
-    "Registration": {
-      "title": "Pendaftaran",
-      "description": "Data calon santri baru.",
-      "type": "object",
-      "properties": {
-        "fullName": { "type": "string" },
-        "gender": { "type": "string" },
-        "nik": { "type": "string" },
-        "nisn": { "type": "string" },
-        "birthPlace": { "type": "string" },
-        "birthDate": { "type": "string" },
-        "bloodType": { "type": "string" },
-        "height": { "type": "string" },
-        "weight": { "type": "string" },
-        "previousSchool": { "type": "string" },
-        "schoolAddress": { "type": "string" },
-        "fatherName": { "type": "string" },
-        "fatherNIK": { "type": "string" },
-        "fatherEducation": { "type": "string" },
-        "motherName": { "type": "string" },
-        "motherNIK": { "type": "string" },
-        "motherEducation": { "type": "string" },
-        "parentOccupation": { "type": "string" },
-        "monthlyIncome": { "type": "string" },
-        "phoneNumber": { "type": "string" },
-        "address": { "type": "string" },
-        "program": { "type": "string" },
-        "motivation": { "type": "string" },
-        "registrationFee": { "type": "string" },
-        "dormitoryFee": { "type": "string" },
-        "monthlyTuition": { "type": "string" },
-        "status": { "type": "string" },
-        "createdAt": { "type": "object" }
-      },
-      "required": ["fullName", "phoneNumber", "address", "birthDate", "program", "gender"]
-    },
     "GlobalSettings": {
       "title": "Pengaturan Global",
       "description": "Konten teks website (Visi, Misi, Sejarah).",
@@ -137,6 +101,21 @@
         "authorizedBy": { "type": "string" }
       },
       "required": ["studentName", "type", "reason", "startDate"]
+    },
+    "Student": {
+      "title": "Data Santri",
+      "description": "Database santri pondok pesantren.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "gender": { "type": "string" },
+        "nis": { "type": "string" },
+        "address": { "type": "string" },
+        "parentName": { "type": "string" },
+        "status": { "type": "string", "enum": ["Aktif", "Alumni", "Keluar"] },
+        "entryYear": { "type": "string" }
+      },
+      "required": ["name", "gender", "address", "parentName", "status", "entryYear"]
     }
   },
   "firestore": {
@@ -148,7 +127,7 @@
       "schema": "Program",
       "description": "Koleksi program pendidikan pesantren."
     },
-    "settings": {
+    "website_config": {
       "schema": "Setting",
       "description": "Dokumen tunggal untuk pengaturan website."
     },
@@ -164,9 +143,9 @@
       "schema": "StudentActivity",
       "description": "Daftar kegiatan santri (ekstrakurikuler)."
     },
-    "registrations": {
-      "schema": "Registration",
-      "description": "Koleksi data pendaftaran calon santri."
+    "students": {
+      "schema": "Student",
+      "description": "Database induk santri."
     },
     "permits": {
       "schema": "Permit",

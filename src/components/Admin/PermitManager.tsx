@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, deleteDoc, doc, query, orderBy, addDoc, Timestamp } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase';
+import { db } from '../../lib/firebase';
+import { internalAuth } from '../../lib/internalAuth';
 import { handleFirestoreError, OperationType } from '../../lib/firestoreUtils';
-import { Trash2, Calendar, User, FileText, CheckCircle, Clock, X, Printer, Plus, Save, ShieldAlert, Heart, Info, ArrowRight } from 'lucide-react';
+import { Trash2, Calendar, User, FileText, X, Printer, Plus, Save, ShieldAlert, Heart, Info, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReactToPrint } from 'react-to-print';
 import { useAdminRole } from '../../hooks/useContent';
+import { toast } from 'react-hot-toast';
+
+interface Student {
+  id: string;
+  name: string;
+  gender: string;
+}
 
 interface Permit {
   id: string;
@@ -126,6 +134,10 @@ PrintablePermit.displayName = 'PrintablePermit';
 
 const PermitForm = ({ onComplete, onCancel, forceGender }: { onComplete: () => void, onCancel: () => void, forceGender?: string }) => {
   const [loading, setLoading] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [search, setSearch] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+
   const [formData, setFormData] = useState({
     studentName: '',
     gender: forceGender === 'putra' ? 'Laki-laki' : (forceGender === 'putri' ? 'Perempuan' : 'Laki-laki'),
@@ -135,16 +147,43 @@ const PermitForm = ({ onComplete, onCancel, forceGender }: { onComplete: () => v
     endDate: '',
   });
 
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'students'), orderBy('name', 'asc')));
+        setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchStudents();
+  }, []);
+
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase());
+    const matchesGender = forceGender === 'all' || 
+                         (forceGender === 'putra' && s.gender === 'Laki-laki') || 
+                         (forceGender === 'putri' && s.gender === 'Perempuan');
+    return matchesSearch && matchesGender;
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (formData.endDate && formData.endDate < formData.startDate) {
+      toast.error('Tanggal akhir tidak boleh sebelum tanggal mulai izin');
+      return;
+    }
+
     setLoading(true);
     try {
       await addDoc(collection(db, 'permits'), {
         ...formData,
         status: 'Approved',
         createdAt: Timestamp.now(),
-        authorizedBy: auth.currentUser?.displayName || auth.currentUser?.email || 'Admin'
+        authorizedBy: internalAuth.getUser()?.username || 'Admin'
       });
+      toast.success('Surat izin berhasil diterbitkan');
       onComplete();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'permits');
@@ -157,41 +196,68 @@ const PermitForm = ({ onComplete, onCancel, forceGender }: { onComplete: () => v
     <motion.div 
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-pesantren-gold/20 rounded-[2rem] p-8 shadow-xl shadow-pesantren-gold/5 mb-8"
+      className="bg-white dark:bg-slate-900 border border-pesantren-gold/20 dark:border-white/5 rounded-[2rem] p-8 shadow-xl shadow-pesantren-gold/5 mb-8 transition-colors"
     >
-      <div className="flex justify-between items-center mb-8 pb-4 border-b border-gray-100">
+      <div className="flex justify-between items-center mb-8 pb-4 border-b border-gray-100 dark:border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-pesantren-gold text-pesantren-dark rounded-xl flex items-center justify-center">
             <Plus size={20} />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-pesantren-dark leading-tight">Buat Surat Izin</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Surat Jalan / Keterangan</p>
+            <h3 className="text-lg font-bold text-pesantren-dark dark:text-white leading-tight transition-colors">Buat Surat Izin</h3>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mt-0.5">Surat Jalan / Keterangan</p>
           </div>
         </div>
-        <button onClick={onCancel} className="text-gray-400 hover:text-red-500 transition-colors">
+        <button onClick={onCancel} className="text-gray-400 dark:text-gray-600 hover:text-red-500 transition-colors">
           <X size={20} />
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nama Santri</label>
-          <input 
-            type="text" 
-            required 
-            placeholder="Nama lengkap santri"
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none"
-            value={formData.studentName}
-            onChange={e => setFormData({...formData, studentName: e.target.value})}
-          />
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+        <div className="space-y-1 relative">
+          <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Nama Santri</label>
+          <div className="relative">
+            <input 
+              type="text" 
+              required 
+              placeholder="Cari nama santri..."
+              autoComplete="off"
+              className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none text-pesantren-dark dark:text-white transition-colors"
+              value={search || formData.studentName}
+              onFocus={() => setShowDropdown(true)}
+              onChange={e => {
+                setSearch(e.target.value);
+                setFormData({...formData, studentName: e.target.value});
+                setShowDropdown(true);
+              }}
+            />
+            {showDropdown && filteredStudents.length > 0 && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                 {filteredStudents.map(s => (
+                   <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setFormData({...formData, studentName: s.name, gender: s.gender});
+                      setSearch(s.name);
+                      setShowDropdown(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5 text-pesantren-dark dark:text-white transition-colors border-b border-gray-50 dark:border-white/5 flex justify-between items-center"
+                   >
+                     <span>{s.name}</span>
+                     <span className="text-[8px] font-black uppercase text-gray-400">{s.gender}</span>
+                   </button>
+                 ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Jenis Kelamin</label>
+          <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Jenis Kelamin</label>
           <select 
-            disabled={forceGender !== 'all'}
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none disabled:opacity-70"
+            disabled={true}
+            className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none disabled:opacity-70 text-pesantren-dark dark:text-white transition-colors"
             value={formData.gender}
             onChange={e => setFormData({...formData, gender: e.target.value})}
           >
@@ -201,9 +267,9 @@ const PermitForm = ({ onComplete, onCancel, forceGender }: { onComplete: () => v
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Jenis Izin</label>
+          <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Jenis Izin</label>
           <select 
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none"
+            className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none text-pesantren-dark dark:text-white transition-colors"
             value={formData.type}
             onChange={e => setFormData({...formData, type: e.target.value as any})}
           >
@@ -214,33 +280,34 @@ const PermitForm = ({ onComplete, onCancel, forceGender }: { onComplete: () => v
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tanggal Mulai</label>
+          <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Tanggal Mulai</label>
           <input 
             type="date" 
             required 
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none"
+            className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none text-pesantren-dark dark:text-white transition-colors"
             value={formData.startDate}
             onChange={e => setFormData({...formData, startDate: e.target.value})}
           />
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tanggal Akhir (Opsional)</label>
+          <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Tanggal Akhir (Opsional)</label>
           <input 
             type="date" 
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none"
+            min={formData.startDate}
+            className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none text-pesantren-dark dark:text-white transition-colors"
             value={formData.endDate}
             onChange={e => setFormData({...formData, endDate: e.target.value})}
           />
         </div>
 
         <div className="md:col-span-2 lg:col-span-3 space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Alasan / Keterangan</label>
+          <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Alasan / Keterangan</label>
           <textarea 
             required 
             rows={2}
             placeholder="Jelaskan alasan izin secara detail..."
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none resize-none"
+            className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pesantren-gold outline-none resize-none text-pesantren-dark dark:text-white transition-colors placeholder:text-gray-300 dark:placeholder:text-gray-700"
             value={formData.reason}
             onChange={e => setFormData({...formData, reason: e.target.value})}
           />
@@ -250,7 +317,7 @@ const PermitForm = ({ onComplete, onCancel, forceGender }: { onComplete: () => v
           <button 
             type="button" 
             onClick={onCancel}
-            className="px-6 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
+            className="px-6 py-3 rounded-xl text-xs font-bold text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             Batal
           </button>
@@ -314,6 +381,7 @@ export default function PermitManager() {
     if (!confirm('Hapus data surat izin ini?')) return;
     try {
       await deleteDoc(doc(db, path, id));
+      toast.success('Data surat izin dihapus');
       fetchPermits();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
@@ -328,13 +396,13 @@ export default function PermitManager() {
   );
 
   return (
-    <div className="px-6 pb-20 max-w-6xl mx-auto space-y-8">
+    <div className="pb-10 space-y-8">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
         <div className="flex items-center gap-3">
           <div>
-            <h3 className="text-xl font-bold text-pesantren-dark">Administrasi Kesantrian</h3>
-            <p className="text-xs text-gray-400 mt-1 uppercase tracking-widest font-bold flex items-center gap-2">
+            <h3 className="text-xl font-bold text-pesantren-dark dark:text-white transition-colors">Administrasi Kesantrian</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-widest font-bold flex items-center gap-2">
               <ShieldAlert size={12} className="text-pesantren-gold" />
               Kelola Surat Izin {role === 'putra' ? 'Putra' : (role === 'putri' ? 'Putri' : 'Santri')}
             </p>
@@ -366,68 +434,68 @@ export default function PermitManager() {
       </AnimatePresence>
 
       {/* Grid of Permits */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
         {permits.length === 0 ? (
-          <div className="md:col-span-2 py-20 text-center bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-100">
-             <FileText className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-             <p className="text-gray-400 font-bold">Belum ada data surat izin</p>
+          <div className="md:col-span-2 py-20 text-center bg-gray-50 dark:bg-slate-800/50 rounded-[3rem] border-2 border-dashed border-gray-100 dark:border-white/5 transition-colors">
+             <FileText className="w-16 h-16 text-gray-200 dark:text-gray-700 mx-auto mb-4" />
+             <p className="text-gray-400 dark:text-gray-500 font-bold">Belum ada data surat izin</p>
           </div>
         ) : permits.map((permit) => (
           <motion.div 
             key={permit.id}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-[2rem] border border-gray-100 hover:shadow-xl hover:shadow-gray-100/50 transition-all overflow-hidden flex flex-col group"
+            className="bg-white dark:bg-slate-900 rounded-[2rem] border border-gray-100 dark:border-white/5 hover:shadow-xl hover:shadow-gray-100/50 dark:hover:shadow-black/50 transition-all overflow-hidden flex flex-col group"
           >
             {/* Card Header with Type */}
-            <div className={`p-4 border-b border-gray-50 flex items-center justify-between transition-colors ${
-              permit.type === 'Sakit' ? 'bg-red-50' : 
-              permit.type === 'Kunjungan' ? 'bg-blue-50' : 'bg-pesantren-cream'
+            <div className={`p-4 border-b border-gray-50 dark:border-white/5 flex items-center justify-between transition-colors ${
+              permit.type === 'Sakit' ? 'bg-red-50 dark:bg-red-500/10' : 
+              permit.type === 'Kunjungan' ? 'bg-blue-50 dark:bg-blue-500/10' : 'bg-pesantren-cream dark:bg-white/5'
             }`}>
               <div className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  permit.type === 'Sakit' ? 'bg-red-100 text-red-600' : 
-                  permit.type === 'Kunjungan' ? 'bg-blue-100 text-blue-600' : 'bg-pesantren-green text-white'
+                   permit.type === 'Sakit' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' : 
+                   permit.type === 'Kunjungan' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-pesantren-green dark:bg-pesantren-gold text-white dark:text-pesantren-dark'
                 }`}>
                    {permit.type === 'Sakit' ? <ShieldAlert size={14} /> : 
                     permit.type === 'Kunjungan' ? <User size={14} /> : <ArrowRight size={14} />}
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest">{permit.type}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-pesantren-dark dark:text-white/80">{permit.type}</span>
               </div>
               <div className="flex items-center gap-2">
                 {permit.gender === 'Perempuan' ? <Heart size={12} className="text-pink-400" /> : <User size={12} className="text-blue-400" />}
-                <span className="text-[10px] font-bold text-gray-400 italic">#{permit.id.slice(-6).toUpperCase()}</span>
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-600 italic">#{permit.id.slice(-6).toUpperCase()}</span>
               </div>
             </div>
 
             <div className="p-6 flex-1 flex flex-col">
-              <h4 className="text-lg font-bold text-pesantren-dark mb-1">{permit.studentName}</h4>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">Izin {permit.type}</p>
+              <h4 className="text-lg font-bold text-pesantren-dark dark:text-white mb-1 transition-colors">{permit.studentName}</h4>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-4">Izin {permit.type}</p>
               
               <div className="space-y-3 mb-6 flex-1">
                 <div className="flex items-start gap-3">
-                   <Calendar size={14} className="text-pesantren-green mt-0.5" />
+                   <Calendar size={14} className="text-pesantren-green dark:text-pesantren-gold mt-0.5" />
                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Waktu Izin</p>
-                      <p className="text-xs font-bold text-pesantren-dark">
-                        {new Date(permit.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                        {permit.endDate && ` - ${new Date(permit.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`}
-                      </p>
+                       <p className="text-[10px] font-black text-gray-400 dark:text-gray-600 uppercase tracking-tighter">Waktu Izin</p>
+                       <p className="text-xs font-bold text-pesantren-dark dark:text-white transition-colors">
+                         {new Date(permit.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                         {permit.endDate && ` - ${new Date(permit.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`}
+                       </p>
                    </div>
                 </div>
                 <div className="flex items-start gap-3">
                    <Info size={14} className="text-pesantren-gold mt-0.5" />
                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Alasan</p>
-                      <p className="text-xs text-gray-500 italic leading-relaxed">"{permit.reason}"</p>
+                       <p className="text-[10px] font-black text-gray-400 dark:text-gray-600 uppercase tracking-tighter">Alasan</p>
+                       <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">"{permit.reason}"</p>
                    </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+              <div className="flex items-center justify-between pt-4 border-t border-gray-50 dark:border-white/5 transition-colors">
                  <div className="flex flex-col">
-                    <span className="text-[9px] text-gray-300 font-black uppercase tracking-widest">Disetujui Oleh</span>
-                    <span className="text-[10px] font-bold text-pesantren-green">{permit.authorizedBy}</span>
+                    <span className="text-[9px] text-gray-300 dark:text-gray-700 font-black uppercase tracking-widest">Disetujui Oleh</span>
+                    <span className="text-[10px] font-bold text-pesantren-green dark:text-pesantren-gold transition-colors">{permit.authorizedBy}</span>
                  </div>
                  <div className="flex gap-2">
                     <button 
@@ -435,14 +503,14 @@ export default function PermitManager() {
                         setSelectedPermit(permit);
                         setTimeout(() => handlePrint(), 100);
                       }}
-                      className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-pesantren-dark hover:text-white transition-all"
+                      className="p-3 bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-gray-500 rounded-xl hover:bg-pesantren-dark dark:hover:bg-pesantren-gold hover:text-white dark:hover:text-pesantren-dark transition-all"
                       title="Cetak Surat Izin"
                     >
                        <Printer size={16} />
                     </button>
                     <button 
                       onClick={() => handleDelete(permit.id)}
-                      className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all transform hover:scale-105"
+                      className="p-3 bg-red-50 dark:bg-red-500/10 text-red-400 dark:text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all transform hover:scale-105"
                       title="Hapus Data"
                     >
                        <Trash2 size={16} />
