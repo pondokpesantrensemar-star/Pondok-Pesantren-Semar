@@ -32,11 +32,13 @@ export default function Programs() {
     !p.title.toLowerCase().includes('ibtidaiyah')
   );
 
+  if (!loading && programs.length === 0) return null;
+
   return (
     <section id="programs" className="py-24 bg-pesantren-cream overflow-hidden border-y border-pesantren-gold/10">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="mb-20 text-center">
-           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-pesantren-gold mb-4">Educational Pillars</p>
+           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-pesantren-gold mb-4">Pilar Pendidikan</p>
            <h2 className="text-4xl md:text-6xl font-serif font-bold text-pesantren-dark tracking-tight leading-none">
              Program Unggulan <span className="block italic engraved-text mt-2">Semar Academy.</span>
            </h2>
@@ -70,7 +72,7 @@ export default function Programs() {
                 
                 <div className="pt-4 overflow-hidden">
                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-pesantren-gold translate-y-8 group-hover:translate-y-0 transition-transform duration-500">
-                      Learn More <ArrowRight size={14} />
+                      Selengkapnya <ArrowRight size={14} />
                    </div>
                 </div>
               </div>

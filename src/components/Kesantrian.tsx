@@ -11,6 +11,8 @@ export default function Kesantrian() {
   const { activities: dbActivities, loading } = useKesantrian();
   const activities = dbActivities.length > 0 ? dbActivities : defaultActivites;
 
+  if (!loading && activities.length === 0) return null;
+
   return (
     <section id="kesantrian" className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">

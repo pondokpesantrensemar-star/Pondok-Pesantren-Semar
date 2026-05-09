@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../../lib/firebase';
 import { internalAuth, InternalUser } from '../../lib/internalAuth';
-import { doc, getDoc, getDocs, collection, query, setDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, setDoc, getCountFromServer } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import { LogIn, User as UserIcon, Key, ArrowRight, ShieldCheck, Home, Loader2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { handleFirestoreError, OperationType } from '../../lib/firestoreUtils';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -27,13 +28,13 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       // 1. Check if ANY admin exists in DB to trigger setup mode
       try {
         const q = query(collection(db, 'admins'));
-        const allSnap = await getDocs(q);
-        setAdminCount(allSnap.size);
-        if (allSnap.size === 0) {
+        const allSnap = await getCountFromServer(q);
+        setAdminCount(allSnap.data().count);
+        if (allSnap.data().count === 0) {
           setIsSetupMode(true);
         }
       } catch (err) {
-        console.error("Auth init check error:", err);
+        handleFirestoreError(err, OperationType.LIST, 'admins');
       }
 
       // 2. Check local session
@@ -90,12 +91,18 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       setIsSetupMode(false);
       
       const q = query(collection(db, 'admins'));
-      const allSnap = await getDocs(q);
-      setAdminCount(allSnap.size);
+      let allSnap;
+      try {
+        allSnap = await getCountFromServer(q);
+        setAdminCount(allSnap.data().count);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, 'admins');
+      }
       
       setUsername('');
       setPassword('');
     } catch (err: any) {
+      handleFirestoreError(err, OperationType.WRITE, 'admins/new');
       setError("Gagal setup: " + err.message);
     } finally {
       setLoginLoading(false);
@@ -151,7 +158,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
                     <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-pesantren-green transition-colors" size={18} />
                     <input 
                       type="text"
-                      placeholder={isSetupMode ? "Username Admin (misal: superadmin)" : "Username"}
+                      placeholder={isSetupMode ? "Username Admin (misal: superadmin)" : "Nama Pengguna"}
                       className="w-full bg-gray-50 border border-gray-100 text-pesantren-dark pl-14 pr-6 py-5 rounded-[1.5rem] focus:ring-4 focus:ring-pesantren-green/5 outline-none transition-all placeholder:text-gray-300 text-sm font-bold"
                       value={username}
                       onChange={e => setUsername(e.target.value)}
@@ -162,7 +169,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
                     <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-pesantren-green transition-colors" size={18} />
                     <input 
                       type="password"
-                      placeholder="Password"
+                      placeholder="Kata Sandi"
                       className="w-full bg-gray-50 border border-gray-100 text-pesantren-dark pl-14 pr-6 py-5 rounded-[1.5rem] focus:ring-4 focus:ring-pesantren-green/5 outline-none transition-all placeholder:text-gray-300 text-sm font-bold"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
@@ -174,7 +181,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
                 <button 
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full bg-pesantren-dark text-white py-5 rounded-[1.5rem] font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-4 hover:bg-pesantren-green transition-all shadow-2xl shadow-pesantren-dark/20 active:scale-95 disabled:opacity-50 mt-4"
+                  className="w-full bg-pesantren-gold text-white py-5 rounded-[1.5rem] font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-4 hover:text-pesantren-dark transition-all shadow-2xl shadow-pesantren-gold/30 active:scale-95 disabled:opacity-50 mt-4"
                 >
                   {loginLoading ? <Loader2 className="animate-spin" size={20} /> : (isSetupMode ? 'Selesaikan Setup' : 'Masuk Panel Admin')}
                   {!loginLoading && <ArrowRight size={18} />}

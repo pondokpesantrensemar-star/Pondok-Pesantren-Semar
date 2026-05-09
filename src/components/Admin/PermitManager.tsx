@@ -396,30 +396,31 @@ export default function PermitManager() {
   );
 
   return (
-    <div className="pb-10 space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
+    <div className="pb-10 space-y-6">
+      {/* Header Section - Streamlined */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-pesantren-gold/10 text-pesantren-gold rounded-xl flex items-center justify-center">
+            <FileText size={20} />
+          </div>
           <div>
-            <h3 className="text-xl font-bold text-pesantren-dark dark:text-white transition-colors">Administrasi Kesantrian</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-widest font-bold flex items-center gap-2">
-              <ShieldAlert size={12} className="text-pesantren-gold" />
-              Kelola Surat Izin {role === 'putra' ? 'Putra' : (role === 'putri' ? 'Putri' : 'Santri')}
+            <h3 className="text-lg font-bold text-pesantren-dark dark:text-white transition-colors">Surat Izin Santri</h3>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-black transition-colors">
+              Data Perizinan & Kunjungan
             </p>
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-pesantren-gold text-pesantren-dark px-6 py-3 rounded-2xl text-sm font-bold shadow-xl shadow-pesantren-gold/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Buat Surat Izin
-          </button>
-        </div>
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full sm:w-auto bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-2"
+        >
+          <Plus size={14} />
+          Buat Izin Baru
+        </button>
       </div>
 
+      {/* Permit Form - Streamlined */}
       <AnimatePresence>
         {showForm && (
           <PermitForm 
@@ -433,94 +434,72 @@ export default function PermitManager() {
         )}
       </AnimatePresence>
 
-      {/* Grid of Permits */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+      {/* Grid of Permits - Highly Streamlined */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {permits.length === 0 ? (
-          <div className="md:col-span-2 py-20 text-center bg-gray-50 dark:bg-slate-800/50 rounded-[3rem] border-2 border-dashed border-gray-100 dark:border-white/5 transition-colors">
-             <FileText className="w-16 h-16 text-gray-200 dark:text-gray-700 mx-auto mb-4" />
-             <p className="text-gray-400 dark:text-gray-500 font-bold">Belum ada data surat izin</p>
+          <div className="md:col-span-full py-16 text-center bg-gray-50 dark:bg-white/5 rounded-[2rem] border border-dashed border-gray-100 dark:border-white/5">
+             <FileText className="w-10 h-10 text-gray-200 dark:text-gray-800 mx-auto mb-3" />
+             <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Belum ada data</p>
           </div>
         ) : permits.map((permit) => (
           <motion.div 
             key={permit.id}
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-slate-900 rounded-[2rem] border border-gray-100 dark:border-white/5 hover:shadow-xl hover:shadow-gray-100/50 dark:hover:shadow-black/50 transition-all overflow-hidden flex flex-col group"
+            className="bg-white dark:bg-slate-900 rounded-[1.5rem] border border-gray-100 dark:border-white/5 p-5 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden"
           >
-            {/* Card Header with Type */}
-            <div className={`p-4 border-b border-gray-50 dark:border-white/5 flex items-center justify-between transition-colors ${
-              permit.type === 'Sakit' ? 'bg-red-50 dark:bg-red-500/10' : 
-              permit.type === 'Kunjungan' ? 'bg-blue-50 dark:bg-blue-500/10' : 'bg-pesantren-cream dark:bg-white/5'
-            }`}>
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                   permit.type === 'Sakit' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' : 
-                   permit.type === 'Kunjungan' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-pesantren-green dark:bg-pesantren-gold text-white dark:text-pesantren-dark'
-                }`}>
-                   {permit.type === 'Sakit' ? <ShieldAlert size={14} /> : 
-                    permit.type === 'Kunjungan' ? <User size={14} /> : <ArrowRight size={14} />}
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-pesantren-dark dark:text-white/80">{permit.type}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {permit.gender === 'Perempuan' ? <Heart size={12} className="text-pink-400" /> : <User size={12} className="text-blue-400" />}
-                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-600 italic">#{permit.id.slice(-6).toUpperCase()}</span>
-              </div>
+            <div className={`absolute top-0 left-0 w-1 h-full ${
+              permit.type === 'Sakit' ? 'bg-rose-500' : 
+              permit.type === 'Kunjungan' ? 'bg-blue-500' : 'bg-pesantren-gold'
+            }`} />
+
+            <div className="flex items-center justify-between mb-3 pl-2">
+              <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${
+                permit.type === 'Sakit' ? 'bg-rose-50 text-rose-500' : 
+                permit.type === 'Kunjungan' ? 'bg-blue-50 text-blue-500' : 'bg-pesantren-gold/10 text-pesantren-gold'
+              }`}>
+                {permit.type}
+              </span>
+              <span className="text-[7px] font-black text-gray-300 dark:text-gray-700">#{permit.id.slice(-4).toUpperCase()}</span>
             </div>
 
-            <div className="p-6 flex-1 flex flex-col">
-              <h4 className="text-lg font-bold text-pesantren-dark dark:text-white mb-1 transition-colors">{permit.studentName}</h4>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-4">Izin {permit.type}</p>
+            <div className="pl-2">
+              <h4 className="text-sm font-bold text-pesantren-dark dark:text-white truncate">{permit.studentName}</h4>
+              <p className="text-[9px] text-gray-400 font-medium italic mt-0.5 mb-3 truncate">"{permit.reason}"</p>
               
-              <div className="space-y-3 mb-6 flex-1">
-                <div className="flex items-start gap-3">
-                   <Calendar size={14} className="text-pesantren-green dark:text-pesantren-gold mt-0.5" />
-                   <div>
-                       <p className="text-[10px] font-black text-gray-400 dark:text-gray-600 uppercase tracking-tighter">Waktu Izin</p>
-                       <p className="text-xs font-bold text-pesantren-dark dark:text-white transition-colors">
-                         {new Date(permit.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                         {permit.endDate && ` - ${new Date(permit.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`}
-                       </p>
-                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                   <Info size={14} className="text-pesantren-gold mt-0.5" />
-                   <div>
-                       <p className="text-[10px] font-black text-gray-400 dark:text-gray-600 uppercase tracking-tighter">Alasan</p>
-                       <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">"{permit.reason}"</p>
-                   </div>
+              <div className="grid grid-cols-1 gap-1.5 mb-4">
+                <div className="flex items-center gap-2 text-[9px] font-bold text-gray-500 dark:text-gray-400">
+                  <Calendar size={10} className="text-pesantren-gold" />
+                  <span>
+                    {new Date(permit.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    {permit.endDate && ` - ${new Date(permit.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-gray-50 dark:border-white/5 transition-colors">
-                 <div className="flex flex-col">
-                    <span className="text-[9px] text-gray-300 dark:text-gray-700 font-black uppercase tracking-widest">Disetujui Oleh</span>
-                    <span className="text-[10px] font-bold text-pesantren-green dark:text-pesantren-gold transition-colors">{permit.authorizedBy}</span>
-                 </div>
-                 <div className="flex gap-2">
-                    <button 
-                      onClick={() => {
-                        setSelectedPermit(permit);
-                        setTimeout(() => handlePrint(), 100);
-                      }}
-                      className="p-3 bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-gray-500 rounded-xl hover:bg-pesantren-dark dark:hover:bg-pesantren-gold hover:text-white dark:hover:text-pesantren-dark transition-all"
-                      title="Cetak Surat Izin"
-                    >
-                       <Printer size={16} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(permit.id)}
-                      className="p-3 bg-red-50 dark:bg-red-500/10 text-red-400 dark:text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all transform hover:scale-105"
-                      title="Hapus Data"
-                    >
-                       <Trash2 size={16} />
-                    </button>
-                 </div>
+              <div className="flex gap-2 pt-3 border-t border-gray-50 dark:border-white/5">
+                <button 
+                  onClick={() => {
+                    setSelectedPermit(permit);
+                    setTimeout(() => handlePrint(), 100);
+                  }}
+                  className="flex-1 py-2 bg-gray-50 dark:bg-slate-800 text-[8px] font-black uppercase tracking-widest text-gray-400 hover:text-pesantren-dark dark:hover:text-pesantren-gold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Printer size={12} />
+                  Cetak
+                </button>
+                <button 
+                  onClick={() => handleDelete(permit.id)}
+                  className="px-2.5 py-2 bg-gray-50 dark:bg-slate-800 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
             </div>
           </motion.div>
         ))}
       </div>
+
 
       {/* Hidden Printable Component */}
       <div className="hidden">

@@ -1,5 +1,4 @@
 import { motion } from "motion/react";
-import * as LucideIcons from "lucide-react";
 import { Building2, Home, Book, Coffee, Wifi, Shield, Users, School, Library, Music, Zap, Heart, Star } from "lucide-react";
 import { useFacilities } from "../hooks/useContent";
 
@@ -17,6 +16,8 @@ const defaultFacilities = [
 export default function Facilities() {
   const { facilities: dbFacilities, loading } = useFacilities();
   const facilities = dbFacilities.length > 0 ? dbFacilities : defaultFacilities;
+
+  if (!loading && facilities.length === 0) return null;
 
   return (
     <section id="facilities" className="py-24 bg-pesantren-cream/30">

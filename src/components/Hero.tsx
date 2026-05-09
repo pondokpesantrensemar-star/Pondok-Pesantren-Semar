@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useSettings } from "../hooks/useContent";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -35,7 +35,7 @@ export default function Hero() {
           >
             <img
               src={images[currentIndex]}
-              alt="Background"
+              alt={`Suasana Pondok Pesantren Semar - Slide ${currentIndex + 1}`}
               className="w-full h-full object-cover brightness-[0.3] contrast-[1.1]"
               referrerPolicy="no-referrer"
             />
@@ -62,13 +62,13 @@ export default function Hero() {
             >
               <div className="w-2 h-2 rounded-full bg-pesantren-gold animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-pesantren-gold">
-                Heritage of Knowledge
+                Warisan Ilmu & Adab
               </span>
             </motion.div>
 
-            <h1 className="text-6xl md:text-8xl xl:text-9xl font-serif leading-[0.85] text-white tracking-[-0.04em]">
-              {loading ? "Keseimbangan" : settings?.heroTitle?.split('\n')[0] || "Keseimbangan"}
-              <span className="block italic engraved-text opacity-90 mt-4 font-normal">
+            <h1 className="text-7xl md:text-[10rem] xl:text-[13rem] font-serif leading-[0.8] text-white tracking-[-0.06em]">
+              {loading ? "NURUL ISLAM" : settings?.heroTitle?.split('\n')[0] || "NURUL ISLAM"}
+              <span className="block italic engraved-text opacity-90 mt-8 font-normal tracking-[-0.02em]">
                 {settings?.heroTitle?.split('\n')[1] || "Ilmu & Taqwa."}
               </span>
             </h1>

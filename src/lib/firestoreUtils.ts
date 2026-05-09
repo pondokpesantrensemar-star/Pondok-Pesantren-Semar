@@ -17,6 +17,10 @@ export interface FirestoreErrorInfo {
     userId?: string | null;
     username?: string | null;
     access?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
   }
 }
 
@@ -28,6 +32,10 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
       userId: user?.id || null,
       username: user?.username || null,
       access: user?.access || null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
     },
     operationType,
     path

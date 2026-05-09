@@ -10,17 +10,14 @@ import { db } from "./lib/firebase";
 
 // Components
 import Navbar from "./components/Navbar";
-import RunningText from "./components/RunningText";
-import ImageTicker from "./components/ImageTicker";
 import Hero from "./components/Hero";
 import Programs from "./components/Programs";
 import AboutUs from "./components/AboutUs";
 import Gallery from "./components/Gallery";
 import Facilities from "./components/Facilities";
-import Kesantrian from "./components/Kesantrian";
 import Footer from "./components/Footer";
 import { motion, useScroll, useSpring } from "motion/react";
-import { Phone, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
 // Admin Lazy Imports
@@ -34,6 +31,8 @@ const FacilityManager = lazy(() => import("./components/Admin/FacilityManager"))
 const KesantrianManager = lazy(() => import("./components/Admin/KesantrianManager"));
 const ActivityManager = lazy(() => import("./components/Admin/ActivityManager"));
 const StaffManager = lazy(() => import("./components/Admin/StaffManager"));
+
+import { seedInitialData } from "./lib/seed";
 
 const LoadingScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-pesantren-cream">
@@ -51,21 +50,16 @@ function PublicView() {
   });
 
   return (
-    <div className="relative public-landing pt-[196px]">
+    <div className="relative public-landing">
       <motion.div
         className="fixed top-0 left-0 right-0 h-1 bg-pesantren-gold z-[100] origin-left"
         style={{ scaleX }}
       />
-      <div className="fixed top-0 left-0 right-0 z-[60]">
-        <RunningText />
-        <Navbar />
-        <ImageTicker />
-      </div>
+      <Navbar />
       <main>
         <Hero />
         <AboutUs />
         <Programs />
-        <Kesantrian />
         <Facilities />
         <Gallery />
       </main>
@@ -76,16 +70,7 @@ function PublicView() {
 
 export default function App() {
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration or internet connection.");
-        }
-      }
-    };
-    testConnection();
+    seedInitialData();
   }, []);
 
   return (

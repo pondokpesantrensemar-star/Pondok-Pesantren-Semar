@@ -67,7 +67,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-[#FDFDFD] dark:bg-slate-950 flex font-sans overflow-hidden">
       {/* Sidebar - Desktop & Tablet */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-slate-900 flex flex-col transition-all duration-500 border-r border-gray-100 dark:border-white/5 lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <motion.aside
+        initial={false}
+        animate={{ x: sidebarOpen ? 0 : '-100%' }}
+        transition={{ duration: 0.4, ease: [0.32, 0, 0.67, 0] }}
+        className="fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-slate-900 flex flex-col border-r border-gray-100 dark:border-white/5 lg:relative lg:translate-x-0"
+      >
         <div className="p-8 border-b border-gray-50 dark:border-white/5 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -93,13 +98,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="p-6 border-t border-gray-50 dark:border-white/5 bg-gray-50/30 dark:bg-black/10">
           <button 
             onClick={() => internalAuth.logout()}
-            className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-white dark:bg-white/5 text-gray-400 dark:text-white/40 rounded-2xl font-black uppercase tracking-widest text-[9px] border border-gray-100 dark:border-white/10 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 dark:hover:bg-red-500 dark:hover:text-white transition-all shadow-sm"
+            className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[9px] border border-gray-100 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 dark:hover:bg-rose-900/40 dark:hover:text-rose-400 dark:hover:border-rose-900/50 transition-all shadow-sm"
           >
             <LogOut size={14} />
-            Sign Out
+            Keluar
           </button>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* Overlay for mobile sidebar */}
       <AnimatePresence>
@@ -126,7 +131,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </button>
             <div className="flex items-center gap-3">
                <h2 className="text-xl font-serif font-bold text-pesantren-dark dark:text-white">
-                  {menuItems.find(i => i.path === location.pathname)?.name || 'Dashboard'}
+                  {menuItems.find(i => i.path === location.pathname)?.name || 'Ringkasan'}
                </h2>
             </div>
           </div>
@@ -135,7 +140,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <button 
               onClick={toggleTheme}
               className="p-2.5 text-gray-400 hover:text-pesantren-dark dark:hover:text-white rounded-xl transition-all"
-              title={isDark ? "Light Mode" : "Dark Mode"}
+              title={isDark ? "Mode Terang" : "Mode Gelap"}
             >
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>

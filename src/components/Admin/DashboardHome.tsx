@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, UserCheck, FileText, 
-  ArrowRight, Heart, User, Plus, ShieldCheck,
+  ArrowRight, Heart, Plus,
   Activity, Printer, Clock, Filter, TrendingUp, PieChart as PieIcon,
   Calendar
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useStats } from '../../hooks/useContent';
 import { 
@@ -22,6 +22,7 @@ interface Student {
   name: string;
   gender: 'Laki-laki' | 'Perempuan';
   status: 'Aktif' | 'Alumni' | 'Keluar';
+  entryYear?: string;
 }
 
 interface Permit {
@@ -68,35 +69,59 @@ export default function DashboardHome() {
     putra: 0,
     putri: 0,
     active: 0,
-    alumni: 0
+    alumni: 0,
+    prestasi: 0,
+    pelanggaran: 0
   });
+  const [enrollmentTrend, setEnrollmentTrend] = useState<any[]>([]);
+  const [permitStatusDistribution, setPermitStatusDistribution] = useState<any[]>([]);
 
   const isSuperAdmin = role === 'all' || role === 'super';
 
   useEffect(() => {
     const fetchDetailedStats = async () => {
       try {
-        // Fetch Students for summary
+        // Fetch Students for summary and trend
         const studentSnap = await getDocs(collection(db, 'students'));
         const students = studentSnap.docs.map(d => d.data() as Student);
         
-        setStudentSummary({
+        // Fetch Achievements, Violations 
+        const [achSnap, violSnap] = await Promise.all([
+          getCountFromServer(collection(db, 'achievements')),
+          getCountFromServer(collection(db, 'violations'))
+        ]);
+
+        const summary = {
           putra: students.filter(s => s.gender === 'Laki-laki').length,
           putri: students.filter(s => s.gender === 'Perempuan').length,
           active: students.filter(s => s.status === 'Aktif').length,
-          alumni: students.filter(s => s.status === 'Alumni').length
-        });
+          alumni: students.filter(s => s.status === 'Alumni').length,
+          prestasi: achSnap.data().count,
+          pelanggaran: violSnap.data().count
+        };
+        setStudentSummary(summary);
 
-        // Fetch Recent Permits
-        const permitSnap = await getDocs(query(
-          collection(db, 'permits'), 
-          orderBy('createdAt', 'desc'), 
-          limit(5)
-        ));
-        setRecentPermits(permitSnap.docs.map(d => ({ 
-          id: d.id, 
-          ...d.data() 
-        } as Permit)));
+        // Enrollment Trend
+        const enrollmentCounts = students.reduce((acc, s) => {
+          const year = s.entryYear || 'Unknown';
+          acc[year] = (acc[year] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        setEnrollmentTrend(Object.entries(enrollmentCounts).map(([year, count]) => ({ name: year, count })).sort((a, b) => a.name.localeCompare(b.name)));
+
+        // Fetch Permits
+        const permitSnap = await getDocs(collection(db, 'permits'));
+        const allPermits = permitSnap.docs.map(d => d.data() as Permit);
+
+        // Recent Permits (limit 5)
+        setRecentPermits(allPermits.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate()).slice(0, 5));
+
+        // Permit Distribution
+        const permitCounts = allPermits.reduce((acc, p) => {
+          acc[p.status] = (acc[p.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        setPermitStatusDistribution(Object.entries(permitCounts).map(([status, count]) => ({ name: status, count })));
 
         // Fetch Activities
         const activitySnap = await getDocs(query(collection(db, 'kesantrian'), limit(3)));
@@ -135,252 +160,202 @@ export default function DashboardHome() {
         {statsLoading && <DashboardLoader />}
       </AnimatePresence>
       
-      {/* Header with Glassmorphism touch */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-4">
-        <div className="relative">
-          <div className="absolute -left-4 top-0 w-1 h-20 bg-pesantren-gold rounded-full opacity-50" />
-          <h2 className="text-4xl md:text-6xl font-serif font-black text-pesantren-dark dark:text-white mb-3 tracking-tight">
-            Dashboard <span className="text-pesantren-gold italic">Santri</span>
+      {/* Header with Focused Design */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-2">
+        <div className="relative pl-6">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-12 bg-pesantren-gold rounded-full" />
+          <h2 className="text-3xl md:text-5xl font-serif font-black text-pesantren-dark dark:text-white mb-2 tracking-tighter">
+            Ringkasan <span className="text-pesantren-gold italic">Data</span>
           </h2>
-          <div className="flex items-center gap-6 text-gray-400 dark:text-gray-500">
-             <DigitalClock className="scale-110 origin-left" showDate />
-             <div className="w-1.5 h-1.5 rounded-full bg-pesantren-gold/30" />
-             <span className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-500 flex items-center gap-2.5">
-               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-               Live Monitoring
+          <div className="flex items-center gap-4 text-gray-400">
+             <DigitalClock className="scale-90 origin-left" showDate />
+             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500 flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+               Sistem Aktif
              </span>
           </div>
         </div>
         
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <Link to="/admin/kesantrian" className="flex-1 md:flex-none px-10 py-5 bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark rounded-[2rem] text-[11px] font-black uppercase tracking-[0.25em] shadow-2xl hover:shadow-pesantren-gold/20 hover:scale-105 transition-all flex items-center justify-center gap-3 border border-white/10">
-             <Plus size={18} /> Registrasi Santri
-          </Link>
-        </div>
+        <Link to="/admin/kesantrian" className="px-6 py-4 bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:shadow-pesantren-gold/20 hover:scale-105 transition-all flex items-center gap-3 border border-white/10">
+           <Plus size={16} /> Tambah Santri
+        </Link>
       </div>
 
-      {/* Stats Cards - Upgraded to Prestige */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      {/* Tighter Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {studentStats.map((stat, i) => (
           <motion.div
             key={stat.name}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className={`prestige-card p-10 hover:scale-[1.02] transition-all group cursor-default`}
+            className="bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 hover:shadow-xl transition-all group"
           >
-            <div className="flex flex-col gap-8">
-              <div className={`w-16 h-16 rounded-[1.5rem] ${stat.bg} ${stat.color} flex items-center justify-center group-hover:rotate-6 transition-transform shadow-sm`}>
-                <stat.icon size={28} />
+            <div className="flex items-center gap-5">
+              <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shrink-0`}>
+                <stat.icon size={20} />
               </div>
-              <div>
-                <div className="text-[11px] font-black text-pesantren-muted uppercase tracking-[0.25em] mb-2">{stat.name}</div>
-                <div className="text-5xl font-black text-pesantren-dark dark:text-white tabular-nums tracking-tighter">
+              <div className="min-w-0">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest truncate">{stat.name}</div>
+                <div className="text-2xl font-black text-pesantren-dark dark:text-white tabular-nums tracking-tight">
                   {statsLoading ? '...' : stat.value}
                 </div>
-              </div>
-              <div className="pt-2 border-t border-pesantren-gold/10 flex items-center gap-2">
-                <TrendingUp size={14} className="text-emerald-500" />
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Database Terkoneksi</span>
               </div>
             </div>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-10">
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="prestige-card p-8">
-              <div className="flex items-center justify-between mb-8">
-                <h4 className="text-lg font-serif font-black text-pesantren-dark dark:text-white uppercase tracking-wider">Rasio Gender</h4>
-                <PieIcon size={18} className="text-pesantren-gold" />
-              </div>
-              <div className="h-64 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={genderData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {genderData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#1a1a1a', color: '#fff', fontSize: '10px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-black text-pesantren-dark dark:text-white">{stats.students}</span>
-                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Total</span>
-                </div>
-              </div>
-              <div className="flex justify-center gap-8 mt-4">
-                {genderData.map(item => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{item.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="prestige-card p-8">
-              <div className="flex items-center justify-between mb-8">
-                <h4 className="text-lg font-serif font-black text-pesantren-dark dark:text-white uppercase tracking-wider">Distribusi Status</h4>
-                <Activity size={18} className="text-pesantren-gold" />
-              </div>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fontWeight: 800, fill: '#94a3b8' }} 
-                    />
-                    <YAxis hide />
-                    <RechartsTooltip 
-                      cursor={{fill: 'transparent'}}
-                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#1a1a1a', color: '#fff', fontSize: '10px' }}
-                    />
-                    <Bar dataKey="value" fill="#c5a059" radius={[10, 10, 0, 0]} barSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Gender Distribution Card */}
+        <div className="bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="text-xs font-black text-pesantren-dark dark:text-white uppercase tracking-[0.2em]">Rasio Gender</h4>
+            <PieIcon size={14} className="text-pesantren-gold" />
           </div>
-
-          <div className="prestige-card p-10 overflow-hidden">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-              <div>
-                <h3 className="text-2xl font-serif font-black text-pesantren-dark dark:text-white">Izin Santri Terbaru</h3>
-                <p className="text-[10px] text-pesantren-muted uppercase tracking-[0.2em] font-bold mt-1.5">Arsip Perizinan Real-Time</p>
-              </div>
-              <Link to="/admin/kesantrian" className="px-6 py-3 border border-pesantren-gold/30 text-[10px] font-black text-pesantren-gold uppercase tracking-[0.2em] rounded-full hover:bg-pesantren-gold hover:text-white transition-all">Lihat Selengkapnya</Link>
-            </div>
-
-            <div className="space-y-4">
-              {recentPermits.length > 0 ? recentPermits.map((permit, i) => (
-                <motion.div 
-                  key={permit.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="flex items-center justify-between p-8 bg-pesantren-cream dark:bg-slate-800/30 rounded-[2rem] border border-transparent hover:border-pesantren-gold/30 hover:shadow-xl hover:shadow-pesantren-gold/5 transition-all group"
+          <div className="h-48 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={genderData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={65}
+                  paddingAngle={8}
+                  dataKey="value"
                 >
-                  <div className="flex items-center gap-8">
-                    <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-pesantren-gold shadow-sm group-hover:scale-110 transition-transform">
-                      <Clock size={22} />
-                    </div>
-                    <div>
-                      <h4 className="font-black text-pesantren-dark dark:text-white text-lg tracking-tight">{permit.studentName}</h4>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-[10px] text-pesantren-muted font-black uppercase tracking-widest bg-white dark:bg-slate-700 px-3 py-1 rounded-full border border-pesantren-gold/10">{permit.reason}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-3 text-right">
-                    <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
-                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Disetujui</span>
-                    </div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                      {permit.createdAt?.toDate ? permit.createdAt.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long' }) : 'Hari Ini'}
-                    </span>
-                  </div>
-                </motion.div>
-              )) : (
-                <div className="py-24 text-center opacity-30">
-                  <FileText size={64} className="mx-auto mb-6 text-pesantren-gold" />
-                  <p className="text-sm font-black uppercase tracking-[0.3em]">Arsip Kosong</p>
-                </div>
-              )}
+                  {genderData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1a1a1a', color: '#fff', fontSize: '9px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-xl font-black text-pesantren-dark dark:text-white">{stats.students}</span>
+              <span className="text-[7px] font-bold text-gray-400 uppercase tracking-widest">Total</span>
             </div>
           </div>
-
-          {/* Daily Activities Section */}
-          {isSuperAdmin && (
-            <div className="prestige-card p-10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                <div>
-                  <h3 className="text-2xl font-serif font-black text-pesantren-dark dark:text-white">Kegiatan Harian</h3>
-                  <p className="text-[10px] text-pesantren-muted uppercase tracking-[0.2em] font-bold mt-1.5">Agenda & Rutinitas Santri</p>
-                </div>
-                <Link to="/admin/activities" className="px-6 py-3 border border-pesantren-gold/30 text-[10px] font-black text-pesantren-gold uppercase tracking-[0.2em] rounded-full hover:bg-pesantren-gold hover:text-white transition-all">Manajemen</Link>
+          <div className="flex flex-wrap justify-center gap-4 mt-2">
+            {genderData.map(item => (
+              <div key={item.name} className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{item.name} ({item.value})</span>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {activities.length > 0 ? activities.map((activity, i) => (
-                  <motion.div
-                    key={activity.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="group bg-pesantren-cream dark:bg-slate-800/30 rounded-[2rem] overflow-hidden border border-transparent hover:border-pesantren-gold/30 transition-all shadow-sm flex flex-col"
-                  >
-                    <div className="aspect-[4/3] relative overflow-hidden">
-                      <img 
-                        src={activity.imageUrl || 'https://images.unsplash.com/photo-1541829070764-84a7d30dee6b?q=80&w=2070&auto=format&fit=crop'} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        alt={activity.title}
-                      />
-                      <div className="absolute top-4 left-4">
-                        <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-widest text-pesantren-dark shadow-lg">
-                          {activity.schedule}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-6 flex-1 flex flex-col">
-                      <h4 className="font-serif font-bold text-lg text-pesantren-dark dark:text-white mb-2 line-clamp-1">{activity.title}</h4>
-                      <p className="text-[10px] text-pesantren-muted line-clamp-2 leading-relaxed">{activity.description}</p>
-                    </div>
-                  </motion.div>
-                )) : (
-                  <div className="col-span-full py-12 text-center opacity-30">
-                    <Calendar size={48} className="mx-auto mb-4 text-pesantren-gold" />
-                    <p className="text-xs font-black uppercase tracking-widest">Belum ada kegiatan</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
-        {/* Info Area */}
-        <div className="lg:col-span-4 space-y-10">
-          <div className="prestige-card p-10">
-            <h4 className="text-lg font-serif font-black text-pesantren-dark dark:text-white uppercase tracking-wider mb-8">Akses Cepat</h4>
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { label: 'Cetak', icon: Printer, path: '/admin/kesantrian', color: 'bg-amber-500' },
-                { label: 'Saring', icon: Filter, path: '/admin/kesantrian', color: 'bg-indigo-500' },
-                { label: 'Analisis', icon: TrendingUp, path: '/admin/kesantrian', color: 'bg-emerald-500' },
-                { label: 'Export', icon: FileText, path: '/admin/kesantrian', color: 'bg-rose-500' },
-              ].map((action, i) => (
-                <Link key={i} to={action.path} className="group">
-                  <div className="bg-pesantren-cream dark:bg-slate-800/50 p-6 rounded-3xl flex flex-col items-center gap-3 transition-all hover:bg-pesantren-dark dark:hover:bg-pesantren-gold group-hover:-translate-y-1">
-                    <div className={`w-10 h-10 rounded-xl ${action.color} text-white flex items-center justify-center group-hover:bg-white group-hover:text-pesantren-dark transition-colors shadow-lg`}>
-                      <action.icon size={20} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-pesantren-muted group-hover:text-white dark:group-hover:text-pesantren-dark transition-colors">{action.label}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+        {/* Enrollment Trend Card */}
+        <div className="bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="text-xs font-black text-pesantren-dark dark:text-white uppercase tracking-[0.2em]">Grafik Tahun Masuk</h4>
+            <TrendingUp size={14} className="text-pesantren-gold" />
+          </div>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={enrollmentTrend}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" hide />
+                <YAxis hide />
+                <RechartsTooltip 
+                  cursor={{fill: 'transparent'}}
+                  contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1a1a1a', color: '#fff', fontSize: '9px' }}
+                />
+                <Bar dataKey="count" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={25} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 flex justify-between text-[8px] font-black text-gray-400 uppercase tracking-widest px-2">
+            <span>Tahun Awal</span>
+            <span>Tahun Saat Ini</span>
+          </div>
+        </div>
+
+        {/* Quick Access Grid */}
+        <div className="bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 flex flex-col">
+          <h4 className="text-xs font-black text-pesantren-dark dark:text-white uppercase tracking-[0.2em] mb-6">Opsi Cepat</h4>
+          <div className="grid grid-cols-2 gap-3 flex-1">
+            {[
+              { label: 'Cetak', icon: Printer, path: '/admin/kesantrian', color: 'text-amber-500' },
+              { label: 'Filter', icon: Filter, path: '/admin/kesantrian', color: 'text-indigo-500' },
+              { label: 'Analisa', icon: Activity, path: '/admin/kesantrian', color: 'text-emerald-500' },
+              { label: 'Unduh', icon: FileText, path: '/admin/kesantrian', color: 'text-rose-500' },
+            ].map((action, i) => (
+              <Link key={i} to={action.path} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-white/5 rounded-2xl hover:bg-pesantren-gold/10 transition-colors group">
+                <div className={`w-8 h-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center shrink-0 shadow-sm ${action.color} group-hover:scale-110 transition-transform`}>
+                  <action.icon size={14} />
+                </div>
+                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest leading-none">{action.label}</span>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Permits - Streamlined */}
+        <div className="bg-white dark:bg-slate-900/50 p-8 rounded-[2.5rem] border border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between mb-8">
+            <h4 className="text-sm font-black text-pesantren-dark dark:text-white uppercase tracking-[0.2em]">Izin Santri Terbaru</h4>
+            <Link to="/admin/kesantrian" className="text-[9px] font-black text-pesantren-gold uppercase tracking-[0.2em] hover:underline">Lihat Semua</Link>
+          </div>
+          <div className="space-y-3">
+            {recentPermits.slice(0, 4).map((permit, i) => (
+              <motion.div 
+                key={permit.id}
+                initial={{ opacity: 0, x: -10 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-transparent hover:border-pesantren-gold/10 transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-pesantren-gold shadow-xs">
+                    <Clock size={16} />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-sm text-pesantren-dark dark:text-white tracking-tight">{permit.studentName}</h5>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{permit.reason}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                   <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Disetujui</div>
+                   <div className="text-[8px] text-gray-400 font-bold tabular-nums">
+                    {permit.createdAt?.toDate ? permit.createdAt.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                   </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Daily Activities - Streamlined */}
+        <div className="bg-white dark:bg-slate-900/50 p-8 rounded-[2.5rem] border border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between mb-8">
+            <h4 className="text-sm font-black text-pesantren-dark dark:text-white uppercase tracking-[0.2em]">Agenda Hari Ini</h4>
+            <Clock size={14} className="text-pesantren-gold" />
+          </div>
+          <div className="space-y-3">
+             {activities.slice(0, 3).map((activity, i) => (
+               <div key={activity.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-2xl">
+                 <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0">
+                    <img src={activity.imageUrl} className="w-full h-full object-cover" alt="" />
+                 </div>
+                 <div className="min-w-0">
+                   <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 bg-pesantren-gold text-white text-[7px] font-black uppercase tracking-widest rounded-md">{activity.schedule}</span>
+                      <h5 className="font-bold text-sm text-pesantren-dark dark:text-white truncate">{activity.title}</h5>
+                   </div>
+                   <p className="text-[9px] text-gray-400 line-clamp-1">{activity.description}</p>
+                 </div>
+               </div>
+             ))}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

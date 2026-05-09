@@ -23,6 +23,8 @@ export default function Gallery() {
     grayscale: false
   }));
 
+  if (!loading && displayImages.length === 0) return null;
+
   const getImgStyle = (image: any) => {
     const filters = [];
     if (image.brightness !== undefined) filters.push(`brightness(${image.brightness}%)`);
@@ -36,37 +38,65 @@ export default function Gallery() {
   };
 
   return (
-    <section id="gallery" className="py-24 bg-white overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center mb-16">
-        <span className="text-pesantren-gold font-serif text-xl italic uppercase tracking-tighter mb-4 block">Dokumentasi</span>
-        <h2 className="text-4xl md:text-5xl font-serif font-bold text-pesantren-green mt-4 italic">Jejak Langkah Kami.</h2>
-        <p className="text-gray-500 mt-4 max-w-2xl mx-auto italic font-serif">Momen Berharga dalam Proses Belajar Mengajar dan Pengabdian</p>
+    <section id="gallery" className="py-32 bg-white relative overflow-hidden">
+      {/* Decorative Background Patterns */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-5">
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-pesantren-gold blur-3xl" />
+        <div className="absolute top-1/2 -right-24 w-64 h-64 rounded-full bg-pesantren-green blur-3xl opacity-50" />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 grid-flow-dense gap-2 sm:gap-4 md:gap-6 px-4 max-w-[1600px] mx-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center mb-20 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-pesantren-gold/10 border border-pesantren-gold/20 mb-6"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-pesantren-gold animate-pulse" />
+          <span className="text-[10px] font-black uppercase text-pesantren-gold tracking-[0.2em]">Dokumentasi Visual</span>
+        </motion.div>
+        
+        <h2 className="text-5xl md:text-7xl font-serif font-bold text-pesantren-green italic leading-[1.1] tracking-tight">
+          Lensa <span className="text-pesantren-gold">Pesantren</span>.
+        </h2>
+        <p className="text-gray-400 mt-6 max-w-xl mx-auto text-sm md:text-base font-medium leading-relaxed">
+          Menangkap setiap detik perjalanan spiritual dan intelektual para santri dalam balutan dedikasi yang tak henti.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 auto-rows-[180px] gap-4 sm:gap-5 md:gap-6 px-4 max-w-[1600px] mx-auto relative z-10">
         {displayImages.map((image, index) => {
-          // Define a recurring bento pattern for variety
           const getSpanClass = (i: number) => {
-            const mod = i % 12;
-            if (mod === 0) return "md:col-span-2 md:row-span-2 aspect-square"; // Featured Large
-            if (mod === 3) return "md:col-span-2 md:row-span-1 aspect-video md:aspect-auto"; // Wide
-            if (mod === 7) return "md:col-span-1 md:row-span-2 aspect-[1/2] md:aspect-auto"; // Tall
-            return "md:col-span-1 md:row-span-1 aspect-square"; // Standard
+            const patterns = [
+              "md:col-span-2 md:row-span-3", // Tall Featured
+              "md:col-span-2 md:row-span-2", // Large Square
+              "md:col-span-1 md:row-span-2", // Simple Tall
+              "md:col-span-2 md:row-span-2", // Large Square
+              "md:col-span-1 md:row-span-1", // Small Square
+              "md:col-span-3 md:row-span-2", // Wide Featured
+              "md:col-span-1 md:row-span-2", // Simple Tall
+              "md:col-span-2 md:row-span-2", // Large Square
+              "md:col-span-1 md:row-span-1", // Small Square
+              "md:col-span-1 md:row-span-2", // Simple Tall
+              "md:col-span-2 md:row-span-1", // Simple Wide
+              "md:col-span-1 md:row-span-1", // Small Square
+            ];
+            return patterns[i % patterns.length];
           };
 
           return (
             <motion.div
               key={index}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ 
-                duration: 0.6, 
-                delay: (index % 6) * 0.1,
+                duration: 0.8, 
+                delay: (index % 8) * 0.05,
                 ease: [0.21, 0.47, 0.32, 0.98] 
               }}
-              whileHover={{ y: -8, scale: 1.02 }}
-              className={`relative group overflow-hidden rounded-2xl md:rounded-[2.5rem] cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-500 bg-gray-100 dark:bg-slate-800 ${getSpanClass(index)}`}
+              whileHover={{ y: -10, scale: 1.01 }}
+              className={`relative group overflow-hidden rounded-[2rem] md:rounded-[3rem] cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-700 bg-gray-50 dark:bg-slate-900 border border-transparent hover:border-pesantren-gold/30 ${getSpanClass(index)}`}
             >
               <img
                 src={image.url}

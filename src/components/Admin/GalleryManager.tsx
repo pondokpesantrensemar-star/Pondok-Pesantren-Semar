@@ -219,18 +219,48 @@ export default function GalleryManager() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
               {/* Preview */}
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Pratinjau Hasil</label>
-                <div className="aspect-video bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center relative border-4 border-gray-100 dark:border-white/5">
+                <div className="flex justify-between items-end">
+                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Pratinjau Hasil</label>
+                  <button 
+                    onClick={() => setEditingImage({ 
+                      ...editingImage, 
+                      rotation: 0, 
+                      brightness: 100, 
+                      contrast: 100, 
+                      grayscale: false 
+                    })}
+                    className="text-[10px] font-black text-pesantren-gold uppercase tracking-widest hover:underline"
+                  >
+                    Reset Filter
+                  </button>
+                </div>
+                <div 
+                  className="aspect-video bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center relative border-4 border-gray-100 dark:border-white/5 cursor-pointer group/preview"
+                  onClick={() => {
+                    const nextRot = ((editingImage.rotation || 0) + 90) % 360;
+                    setEditingImage({ ...editingImage, rotation: nextRot });
+                  }}
+                >
                   <img 
                     src={editingImage.url} 
                     alt="Preview" 
-                    className="max-w-full max-h-full object-contain transition-all duration-300"
-                    style={applyTransformation(editingImage)}
+                    className="max-w-full max-h-full object-contain"
+                    style={{
+                      ...applyTransformation(editingImage),
+                      transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.05s linear'
+                    }}
                   />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-white text-xs font-bold border border-white/20 flex items-center gap-2">
+                      <RotateCw size={14} />
+                      Klik untuk Rotasi
+                    </div>
+                  </div>
                   <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-white font-bold">
                     PREVIEW
                   </div>
                 </div>
+                <p className="text-[10px] text-center text-gray-400 dark:text-gray-500 italic">Tip: Klik pada gambar untuk merotasi 90° cepat</p>
               </div>
 
               {/* Controls */}
@@ -312,7 +342,7 @@ export default function GalleryManager() {
                         <span className="text-pesantren-gold">{editingImage.brightness || 100}%</span>
                       </div>
                       <input 
-                        type="range" min="50" max="150" step="5"
+                        type="range" min="50" max="150" step="1"
                         className="w-full accent-pesantren-gold h-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
                         value={editingImage.brightness || 100}
                         onChange={e => setEditingImage({ ...editingImage, brightness: parseInt(e.target.value) })}
@@ -325,7 +355,7 @@ export default function GalleryManager() {
                         <span className="text-pesantren-gold">{editingImage.contrast || 100}%</span>
                       </div>
                       <input 
-                        type="range" min="50" max="150" step="5"
+                        type="range" min="50" max="150" step="1"
                         className="w-full accent-pesantren-gold h-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
                         value={editingImage.contrast || 100}
                         onChange={e => setEditingImage({ ...editingImage, contrast: parseInt(e.target.value) })}

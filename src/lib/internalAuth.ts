@@ -1,6 +1,8 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
+import { handleFirestoreError, OperationType } from './firestoreUtils';
+
 export interface InternalUser {
   id: string;
   username: string;
@@ -27,7 +29,13 @@ export const internalAuth = {
     const cleanUsername = username.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
     const docId = `${cleanUsername}@pesantren.local`;
     
-    const adminDoc = await getDoc(doc(db, 'admins', docId));
+    let adminDoc;
+    try {
+      adminDoc = await getDoc(doc(db, 'admins', docId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `admins/${docId}`);
+      throw err;
+    }
     
     if (!adminDoc.exists()) {
       throw new Error('User tidak ditemukan.');

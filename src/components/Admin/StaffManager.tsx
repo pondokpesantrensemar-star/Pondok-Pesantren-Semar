@@ -24,6 +24,8 @@ export default function StaffManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const currentUser = internalAuth.getUser();
 
   const [formData, setFormData] = useState({
@@ -49,6 +51,16 @@ export default function StaffManager() {
     fetchStaffs();
   }, []);
 
+  const handleEdit = (staff: AdminUser) => {
+    setEditingId(staff.id);
+    setFormData({
+      username: staff.username,
+      password: staff.password || '',
+      access: staff.access
+    });
+    setShowAddForm(true);
+  };
+
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password.length < 6) {
@@ -58,25 +70,30 @@ export default function StaffManager() {
 
     setSaving(true);
     try {
-      const cleanUsername = formData.username.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-      const docId = `${cleanUsername}@pesantren.local`;
+      let docId = editingId;
+      
+      if (!docId) {
+        const cleanUsername = formData.username.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+        docId = `${cleanUsername}@pesantren.local`;
+      }
 
-      // Just add to Firestore (Internal Mode)
+      // Add or Update to Firestore (Internal Mode)
       await setDoc(doc(db, 'admins', docId), {
         username: formData.username,
         password: formData.password,
         access: formData.access,
         type: 'credential',
-        addedAt: new Date().toISOString(),
+        addedAt: editingId ? (staffs.find(s => s.id === editingId)?.addedAt || new Date().toISOString()) : new Date().toISOString(),
         addedBy: currentUser?.username || 'Admin'
       });
 
-      toast.success("Staff berhasil ditambahkan!");
+      toast.success(editingId ? "Data pengurus diperbarui!" : "Staff berhasil ditambahkan!");
       setShowAddForm(false);
+      setEditingId(null);
       setFormData({ username: '', password: '', access: 'kesantrian' });
       fetchStaffs();
     } catch (e: any) {
-      toast.error("Gagal menambah staff: " + e.message);
+      toast.error("Gagal menyimpan data: " + e.message);
     } finally {
       setSaving(false);
     }
@@ -114,7 +131,13 @@ export default function StaffManager() {
           <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mt-1">Kelola Akun & Hak Akses Panel Administrasi</p>
         </div>
         <button 
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => {
+            if (showAddForm) {
+              setEditingId(null);
+              setFormData({ username: '', password: '', access: 'kesantrian' });
+            }
+            setShowAddForm(!showAddForm);
+          }}
           className="bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
         >
           {showAddForm ? <X size={16} /> : <UserPlus size={16} />}
@@ -150,13 +173,20 @@ export default function StaffManager() {
                 <div className="relative">
                   <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
                   <input 
-                    type="password" 
+                    type={showPassword ? "text" : "password"} 
                     required 
                     placeholder="Min. 6 karakter"
-                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 pl-12 pr-4 py-4 rounded-xl text-sm focus:ring-2 focus:ring-pesantren-gold outline-none text-pesantren-dark dark:text-white"
+                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 pl-12 pr-12 py-4 rounded-xl text-sm focus:ring-2 focus:ring-pesantren-gold outline-none text-pesantren-dark dark:text-white"
                     value={formData.password}
                     onChange={e => setFormData({ ...formData, password: e.target.value })}
                   />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pesantren-gold transition-colors"
+                  >
+                    {showPassword ? <X size={16} /> : <Shield size={16} />}
+                  </button>
                 </div>
               </div>
               <div className="space-y-2">
@@ -179,7 +209,7 @@ export default function StaffManager() {
                   className="bg-pesantren-green text-white px-8 py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-pesantren-green/20 hover:scale-105 transition-all disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  Simpan Akun Pengurus
+                  {editingId ? 'Perbarui Data Pengurus' : 'Simpan Akun Pengurus'}
                 </button>
               </div>
             </form>
@@ -195,7 +225,7 @@ export default function StaffManager() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 flex items-center justify-between group hover:shadow-xl hover:shadow-gray-100/50 dark:hover:shadow-black/50 transition-all"
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-1">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
                 staff.access === 'all' ? 'bg-pesantren-gold/10 text-pesantren-gold' : 'bg-pesantren-green/10 text-pesantren-green'
               }`}>
@@ -209,20 +239,30 @@ export default function StaffManager() {
                   }`}>
                     {staff.access === 'all' ? 'Super Admin' : (staff.access === 'kesantrian' ? 'Kesantrian' : staff.access)}
                   </span>
-                  <span className="text-[8px] text-gray-300 dark:text-gray-600 font-bold italic">
-                    {staff.type === 'google' ? 'Google Auth' : staff.id}
-                  </span>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[9px] font-mono text-slate-500">
+                    <Key size={10} />
+                    <span>{staff.password}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <button 
-              onClick={() => handleDelete(staff)}
-              className="p-3 text-gray-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-              title="Cabut Akses"
-            >
-              <Trash2 size={18} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handleEdit(staff)}
+                className="p-3 text-gray-300 hover:text-pesantren-gold hover:bg-pesantren-gold/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                title="Edit Pengurus"
+              >
+                <UserCog size={18} />
+              </button>
+              <button 
+                onClick={() => handleDelete(staff)}
+                className="p-3 text-gray-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                title="Cabut Akses"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
           </motion.div>
         ))}
       </div>

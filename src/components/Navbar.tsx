@@ -1,8 +1,8 @@
 import { motion } from "motion/react";
-import { Menu, X, Plus } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import DigitalClock from "./DigitalClock";
+import Marquee from "./Marquee";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,13 +17,21 @@ export default function Navbar() {
   const navLinks = [
     { name: "Beranda", href: "#" },
     { name: "Program", href: "#programs" },
-    { name: "Gallery", href: "#gallery" },
+    { name: "Galeri", href: "#gallery" },
     { name: "Fasilitas", href: "#facilities" },
   ];
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ${isScrolled ? 'py-2' : 'py-6'}`}>
-      <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700`}>
+      <motion.div
+        initial={false}
+        animate={{ height: isScrolled ? 0 : 'auto', opacity: isScrolled ? 0 : 1 }}
+        transition={{ duration: 0.5 }}
+        className="overflow-hidden"
+      >
+        <Marquee />
+      </motion.div>
+      <div className={`max-w-[1440px] mx-auto px-6 lg:px-12 transition-all duration-700 ${isScrolled ? 'py-2' : 'py-6'}`}>
         <motion.div 
           className={`flex justify-between items-center px-10 transition-all duration-700 overflow-hidden ${
             isScrolled 
@@ -35,16 +43,13 @@ export default function Navbar() {
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-700 ${isScrolled ? 'bg-pesantren-dark text-pesantren-gold' : 'bg-pesantren-gold text-pesantren-dark'}`}>
               <span className="font-serif text-2xl font-black">S</span>
             </div>
-            <div className={`leading-none transition-all duration-700 ${isScrolled ? 'translate-x-0' : 'translate-x-1'}`}>
-              <h1 className={`text-lg font-serif font-bold tracking-tight uppercase transition-colors duration-700 ${isScrolled ? 'text-pesantren-dark' : 'text-white'}`}>Pesantren Semar</h1>
-              <p className={`text-[10px] font-black tracking-[0.3em] uppercase transition-colors duration-700 ${isScrolled ? 'text-pesantren-gold' : 'text-pesantren-gold/60'}`}>Pamekasan • Madura</p>
+            <div className={`leading-none transition-all duration-700 ${isScrolled ? 'translate-x-0' : 'translate-x-2'}`}>
+              <div className={`text-xl md:text-3xl font-serif font-bold tracking-tight uppercase transition-colors duration-700 ${isScrolled ? 'text-pesantren-dark' : 'text-white'}`}>NURUL ISLAM</div>
+              <p className={`text-[11px] font-black tracking-[0.4em] uppercase transition-colors duration-700 mt-1 ${isScrolled ? 'text-pesantren-gold' : 'text-pesantren-gold/70'}`}>Pesantren Semar • Madura</p>
             </div>
           </div>
 
           <div className="hidden lg:flex flex-1 justify-center origin-center">
-            <div className={`transition-all duration-700 ${isScrolled ? 'scale-90 opacity-40 grayscale' : 'scale-100 opacity-100'}`}>
-              <DigitalClock showDate className={isScrolled ? 'text-pesantren-dark' : 'text-white'} />
-            </div>
           </div>
 
           {/* Desktop Links */}
