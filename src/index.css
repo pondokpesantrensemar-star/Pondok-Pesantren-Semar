@@ -5,24 +5,23 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Cormorant Garamond", "Playfair Display", ui-serif, Georgia, serif;
   
-  --color-pesantren-green: #164e33;
+  --color-pesantren-green: #15803d;
   --color-pesantren-gold: #c5a059;
-  --color-pesantren-cream: #FDFCF8;
-  --color-pesantren-dark: #1a2e26;
-  --color-pesantren-muted: #8b8b7a;
-  --color-pesantren-border: #e2e2d5;
+  --color-pesantren-cream: #fdfbf7;
+  --color-pesantren-dark: #064e3b;
+  --color-pesantren-muted: #64748b;
+  --color-pesantren-border: #f1f5f9;
   
   --shadow-prestige: 0 10px 40px -10px rgba(22, 78, 51, 0.1), 0 2px 20px -5px rgba(197, 160, 89, 0.05);
 }
 
 @layer base {
-  body {
-    @apply antialiased min-h-screen selection:bg-pesantren-gold selection:text-white bg-pesantren-cream dark:bg-slate-950 transition-colors duration-300;
+  html {
+    scroll-behavior: smooth;
   }
-}
-
-.dark .prestige-card {
-  @apply bg-slate-900/50 border-white/5;
+  body {
+    @apply antialiased min-h-screen selection:bg-pesantren-gold selection:text-white bg-pesantren-cream transition-colors duration-300;
+  }
 }
 
 .public-landing {
@@ -64,5 +63,26 @@
   
   .glass-card {
     @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+  }
+
+  /* Admin Dashboard Styles */
+  .admin-card {
+    @apply bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 transition-all duration-300;
+  }
+  
+  .admin-text-main {
+    @apply text-pesantren-dark dark:text-slate-100 transition-colors duration-300;
+  }
+  
+  .admin-text-muted {
+    @apply text-slate-500 dark:text-slate-400 transition-colors duration-300;
+  }
+
+  .admin-btn-primary {
+    @apply bg-pesantren-green hover:bg-pesantren-dark dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white transition-all duration-300 hover:shadow-lg hover:shadow-pesantren-green/20 dark:hover:shadow-emerald-900/40;
+  }
+
+  section {
+    scroll-margin-top: 100px;
   }
 }

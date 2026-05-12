@@ -1,54 +1,51 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, getDoc, query, orderBy, getCountFromServer } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { internalAuth } from '../lib/internalAuth';
-import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 
 export function useAdminRole() {
   const [role, setRole] = useState<string | null>(() => {
-    const cached = sessionStorage.getItem('pesantren_role');
+    const cached = localStorage.getItem('pesantren_role');
     return cached || null;
   });
   const [adminData, setAdminData] = useState<any>(() => {
-    const cached = sessionStorage.getItem('pesantren_admin_data');
+    const cached = localStorage.getItem('pesantren_admin_data');
     return cached ? JSON.parse(cached) : null;
   });
   const [loading, setLoading] = useState(!role);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchRole = async () => {
       const user = internalAuth.getUser();
       if (!user) {
         setRole('none');
         setAdminData(null);
         setLoading(false);
-        sessionStorage.removeItem('pesantren_role');
-        sessionStorage.removeItem('pesantren_admin_data');
+        localStorage.removeItem('pesantren_role');
+        localStorage.removeItem('pesantren_admin_data');
         return;
       }
       
       try {
-        const snap = await getDoc(doc(db, 'admins', user.id));
-        if (snap.exists()) {
-          const data = snap.data();
-          const accessRole = data.access || 'all';
-          setRole(accessRole);
-          setAdminData(data);
-          sessionStorage.setItem('pesantren_role', accessRole);
-          sessionStorage.setItem('pesantren_admin_data', JSON.stringify(data));
+        const response = await fetch(`/api/admins/${user.id}`);
+        if(response.ok) {
+            const data = await response.json();
+            const accessRole = data.access || 'all';
+            setRole(accessRole);
+            setAdminData(data);
+            localStorage.setItem('pesantren_role', accessRole);
+            localStorage.setItem('pesantren_admin_data', JSON.stringify(data));
         } else {
-          setRole(user.access);
-          setAdminData(user);
+            setRole(user.access);
+            setAdminData(user);
         }
       } catch (e) {
-        handleFirestoreError(e, OperationType.GET, `admins/${user.id}`);
+        console.error('Error fetching admin role:', e);
         setRole(user.access);
         setAdminData(user);
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchRole();
   }, []);
 
   return { role, adminData, loading };
@@ -56,27 +53,26 @@ export function useAdminRole() {
 
 export function useSettings() {
   const [settings, setSettings] = useState<any>(() => {
-    const cached = sessionStorage.getItem('pesantren_settings');
+    const cached = localStorage.getItem('pesantren_settings');
     return cached ? JSON.parse(cached) : null;
   });
   const [loading, setLoading] = useState(!settings);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchSettings = async () => {
       try {
-        const snap = await getDoc(doc(db, 'settings', 'website'));
-        if (snap.exists()) {
-          const data = snap.data();
-          setSettings(data);
-          sessionStorage.setItem('pesantren_settings', JSON.stringify(data));
-        }
+        const response = await fetch('/api/settings');
+        if(!response.ok) throw new Error('Failed');
+        const data = await response.json();
+        setSettings(data);
+        localStorage.setItem('pesantren_settings', JSON.stringify(data));
       } catch (e) {
-        handleFirestoreError(e, OperationType.GET, 'settings/website');
+        console.error('Error fetching settings:', e);
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchSettings();
   }, []);
 
   return { settings, loading };
@@ -84,160 +80,205 @@ export function useSettings() {
 
 export function usePrograms() {
   const [programs, setPrograms] = useState<any[]>(() => {
-    const cached = sessionStorage.getItem('pesantren_programs');
+    const cached = localStorage.getItem('pesantren_programs');
     return cached ? JSON.parse(cached) : [];
   });
   const [loading, setLoading] = useState(programs.length === 0);
+  const [error, setError] = useState<boolean>(() => {
+    return localStorage.getItem('error_pesantren_programs') === 'true';
+  });
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchPrograms = async () => {
       try {
-        const q = query(collection(db, 'programs'), orderBy('order', 'asc'));
-        const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const response = await fetch('/api/programs');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
         setPrograms(data);
-        sessionStorage.setItem('pesantren_programs', JSON.stringify(data));
+        localStorage.setItem('pesantren_programs', JSON.stringify(data));
+        setError(false);
+        localStorage.removeItem('error_pesantren_programs');
       } catch (e) {
-        handleFirestoreError(e, OperationType.LIST, 'programs');
+        console.error('Error fetching programs:', e);
+        setError(true);
+        localStorage.setItem('error_pesantren_programs', 'true');
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchPrograms();
   }, []);
 
-  return { programs, loading };
+  return { programs, loading, error };
 }
 
 export function useGallery() {
   const [images, setImages] = useState<any[]>(() => {
-    const cached = sessionStorage.getItem('pesantren_gallery');
+    const cached = localStorage.getItem('pesantren_gallery');
     return cached ? JSON.parse(cached) : [];
   });
   const [loading, setLoading] = useState(images.length === 0);
+  const [error, setError] = useState<boolean>(() => {
+    return localStorage.getItem('error_pesantren_gallery') === 'true';
+  });
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchGallery = async () => {
       try {
-        const q = query(collection(db, 'gallery'), orderBy('order', 'asc'));
-        const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const response = await fetch('/api/gallery');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
         setImages(data);
-        sessionStorage.setItem('pesantren_gallery', JSON.stringify(data));
+        localStorage.setItem('pesantren_gallery', JSON.stringify(data));
+        setError(false);
+        localStorage.removeItem('error_pesantren_gallery');
       } catch (e) {
-        handleFirestoreError(e, OperationType.LIST, 'gallery');
+        console.error('Error fetching gallery:', e);
+        setError(true);
+        localStorage.setItem('error_pesantren_gallery', 'true');
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchGallery();
   }, []);
 
-  return { images, loading };
+  return { images, loading, error };
 }
 
 export function useFacilities() {
   const [facilities, setFacilities] = useState<any[]>(() => {
-    const cached = sessionStorage.getItem('pesantren_facilities');
+    const cached = localStorage.getItem('pesantren_facilities');
     return cached ? JSON.parse(cached) : [];
   });
   const [loading, setLoading] = useState(facilities.length === 0);
+  const [error, setError] = useState<boolean>(() => {
+    return localStorage.getItem('error_pesantren_facilities') === 'true';
+  });
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchFacilities = async () => {
       try {
-        const q = query(collection(db, 'facilities'));
-        const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const response = await fetch('/api/facilities');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
         setFacilities(data);
-        sessionStorage.setItem('pesantren_facilities', JSON.stringify(data));
+        localStorage.setItem('pesantren_facilities', JSON.stringify(data));
+        setError(false);
+        localStorage.removeItem('error_pesantren_facilities');
       } catch (e) {
-        handleFirestoreError(e, OperationType.LIST, 'facilities');
+        console.error('Error fetching facilities:', e);
+        setError(true);
+        localStorage.setItem('error_pesantren_facilities', 'true');
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchFacilities();
   }, []);
 
-  return { facilities, loading };
+  return { facilities, loading, error };
 }
 
 export function useKesantrian() {
   const [activities, setActivities] = useState<any[]>(() => {
-    const cached = sessionStorage.getItem('pesantren_kesantrian');
+    const cached = localStorage.getItem('pesantren_kesantrian');
     return cached ? JSON.parse(cached) : [];
   });
   const [loading, setLoading] = useState(activities.length === 0);
+  const [error, setError] = useState<boolean>(() => {
+    return localStorage.getItem('error_pesantren_kesantrian') === 'true';
+  });
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchKesantrian = async () => {
       try {
-        const q = query(collection(db, 'kesantrian'));
-        const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const response = await fetch('/api/kesantrian');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
         setActivities(data);
-        sessionStorage.setItem('pesantren_kesantrian', JSON.stringify(data));
+        localStorage.setItem('pesantren_kesantrian', JSON.stringify(data));
+        setError(false);
+        localStorage.removeItem('error_pesantren_kesantrian');
       } catch (e) {
-        handleFirestoreError(e, OperationType.LIST, 'kesantrian');
+        console.error('Error fetching kesantrian:', e);
+        setError(true);
+        localStorage.setItem('error_pesantren_kesantrian', 'true');
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchKesantrian();
   }, []);
 
-  return { activities, loading };
+  return { activities, loading, error };
+}
+
+export function useDailySchedules() {
+  const [schedules, setSchedules] = useState<any[]>(() => {
+    const cached = localStorage.getItem('pesantren_daily_schedules');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [loading, setLoading] = useState(schedules.length === 0);
+  const [error, setError] = useState<boolean>(() => {
+    return localStorage.getItem('error_pesantren_daily_schedules') === 'true';
+  });
+
+  useEffect(() => {
+    const fetchDailySchedules = async () => {
+      try {
+        const response = await fetch('/api/daily_schedules');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        setSchedules(data);
+        localStorage.setItem('pesantren_daily_schedules', JSON.stringify(data));
+        setError(false);
+        localStorage.removeItem('error_pesantren_daily_schedules');
+      } catch (e) {
+        console.error('Error fetching daily_schedules:', e);
+        setError(true);
+        localStorage.setItem('error_pesantren_daily_schedules', 'true');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDailySchedules();
+  }, []);
+
+  return { schedules, loading, error };
 }
 
 export function useStats() {
   const [stats, setStats] = useState(() => {
-    const cached = sessionStorage.getItem('stats');
+    const cached = localStorage.getItem('stats');
     return cached ? JSON.parse(cached) : {
       programs: 0,
       facilities: 0,
       gallery: 0,
       kesantrian: 0,
       permits: 0,
-      students: 0
+      students: 0,
+      prayerViolations: 0
     };
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchStats = async () => {
       setLoading(true);
       try {
-        const collections = ['programs', 'facilities', 'gallery', 'kesantrian', 'permits', 'students'];
-        const results = await Promise.all(collections.map(async (c) => {
-          try {
-            return await getCountFromServer(collection(db, c));
-          } catch (err) {
-            handleFirestoreError(err, OperationType.LIST, c);
-            throw err;
-          }
-        }));
-        
-        const newStats = {
-          programs: results[0].data().count,
-          facilities: results[1].data().count,
-          gallery: results[2].data().count,
-          kesantrian: results[3].data().count,
-          permits: results[4].data().count,
-          students: results[5].data().count
-        };
-        setStats(newStats);
-        sessionStorage.setItem('stats', JSON.stringify(newStats));
+        const response = await fetch('/api/stats');
+        if (!response.ok) throw new Error('Failed to fetch stats');
+        const data = await response.json();
+        setStats(data);
+        localStorage.setItem('stats', JSON.stringify(data));
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
       }
     };
-    if (stats.programs === 0 && stats.facilities === 0 && stats.gallery === 0 && stats.kesantrian === 0 && stats.permits === 0 && stats.students === 0) {
-      fetch();
-    }
+    fetchStats();
   }, []);
-
   return { stats, loading };
 }

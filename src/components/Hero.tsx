@@ -8,9 +8,18 @@ export default function Hero() {
   const { settings, loading } = useSettings();
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  const optimizeUnsplash = (url: string, width = 1200, quality = 80) => {
+    if (!url.includes('unsplash.com')) return url;
+    // Remove existing w, h, q params to avoid conflicts
+    const baseUrl = url.split('?')[0];
+    return `${baseUrl}?auto=format,compress&q=${quality}&w=${width}&fit=crop`;
+  };
+
   const images = settings?.slideshowImages?.length > 0 
-    ? settings.slideshowImages 
-    : [settings?.heroImage || "https://images.unsplash.com/photo-1548013146-72479768bbaa?auto=format&fit=crop&q=80&w=1200&h=800"];
+    ? settings.slideshowImages.map((img: string) => optimizeUnsplash(img))
+    : [optimizeUnsplash(settings?.heroImage || "https://images.unsplash.com/photo-1548013146-72479768bbaa", 1200, 70)];
+
+  const bgImages = images.map((img: string) => optimizeUnsplash(img, 1200, 40)); // Background can be lower quality due to brightness filter
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -21,7 +30,7 @@ export default function Hero() {
   }, [images.length]);
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-pesantren-green">
+    <section id="hero" className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-pesantren-green">
       {/* Background Slideshow Layer */}
       <div className="absolute inset-0 z-0">
         <AnimatePresence mode="wait">
@@ -34,10 +43,12 @@ export default function Hero() {
             className="absolute inset-0"
           >
             <img
-              src={images[currentIndex]}
+              src={bgImages[currentIndex]}
               alt={`Suasana Pondok Pesantren Semar - Slide ${currentIndex + 1}`}
               className="w-full h-full object-cover brightness-[0.3] contrast-[1.1]"
               referrerPolicy="no-referrer"
+              fetchPriority={currentIndex === 0 ? "high" : "auto"}
+              loading={currentIndex === 0 ? "eager" : "lazy"}
             />
           </motion.div>
         </AnimatePresence>
@@ -62,12 +73,12 @@ export default function Hero() {
             >
               <div className="w-2 h-2 rounded-full bg-pesantren-gold animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-pesantren-gold">
-                Warisan Ilmu & Adab
+                PONDOK PESANTREN SEMAR
               </span>
             </motion.div>
 
             <h1 className="text-7xl md:text-[10rem] xl:text-[13rem] font-serif leading-[0.8] text-white tracking-[-0.06em]">
-              {loading ? "NURUL ISLAM" : settings?.heroTitle?.split('\n')[0] || "NURUL ISLAM"}
+              {loading ? "PONDOK SEMAR" : settings?.heroTitle?.split('\n')[0] || "PONDOK SEMAR"}
               <span className="block italic engraved-text opacity-90 mt-8 font-normal tracking-[-0.02em]">
                 {settings?.heroTitle?.split('\n')[1] || "Ilmu & Taqwa."}
               </span>
@@ -85,22 +96,11 @@ export default function Hero() {
                   const el = document.getElementById('programs');
                   el?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="bg-pesantren-dark text-white px-14 py-6 rounded-2xl text-[11px] font-black tracking-[0.3em] uppercase transition-all shadow-2xl shadow-black/20 group flex items-center gap-4"
+                className="bg-pesantren-green text-white px-14 py-6 rounded-2xl text-[11px] font-black tracking-[0.3em] uppercase transition-all shadow-2xl shadow-black/20 group flex items-center gap-4"
               >
                 Jelajahi Program
                 <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
               </motion.button>
-              
-              <div className="flex -space-x-3">
-                {[1, 2, 3, 4].map(idx => (
-                  <div key={idx} className="w-12 h-12 rounded-full border-4 border-pesantren-green bg-pesantren-dark overflow-hidden shadow-xl">
-                    <img src={`https://i.pravatar.cc/100?img=${idx + 10}`} alt="Santri" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-                <div className="w-12 h-12 rounded-full border-4 border-pesantren-green bg-pesantren-gold flex items-center justify-center text-[10px] font-black text-pesantren-dark shadow-xl">
-                  {settings?.totalSantri || "1.2K"}
-                </div>
-              </div>
             </div>
           </motion.div>
 
@@ -123,6 +123,8 @@ export default function Hero() {
                     transition={{ duration: 1 }}
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
+                    fetchPriority={currentIndex === 0 ? "high" : "auto"}
+                    loading={currentIndex === 0 ? "eager" : "lazy"}
                   />
                  </AnimatePresence>
                  <div className="absolute inset-0 bg-gradient-to-t from-pesantren-dark/60 to-transparent" />

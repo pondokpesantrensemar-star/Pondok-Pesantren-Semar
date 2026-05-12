@@ -1,7 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, updateDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
-import { handleFirestoreError, OperationType } from '../../lib/firestoreUtils';
 import { 
   Plus, Trash2, Calendar, Settings2, X, Save, ArrowUpDown, ArrowUpAZ, ArrowDownZA
 } from 'lucide-react';
@@ -16,25 +13,31 @@ interface ActivityItem {
   imageUrl: string;
   schedule: string;
   date?: string; // ISO Date string for specific events
+  category?: string;
 }
+
+const CATEGORY_OPTIONS = ['Ibadah', 'Akademik', 'Ekstrakurikuler', 'Lainnya'];
 
 export default function ActivityManager() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ title: '', description: '', imageUrl: '', schedule: '', date: '' });
+  const [formData, setFormData] = useState({ title: '', description: '', imageUrl: '', schedule: '', date: '', category: CATEGORY_OPTIONS[0] });
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [categoryFilter, setCategoryFilter] = useState<string>('Semua');
 
   const fetchActivities = async () => {
     try {
-      const snapshot = await getDocs(query(collection(db, 'kesantrian')));
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ActivityItem));
+      const response = await fetch('/api/kesantrian');
+      if (!response.ok) throw new Error('Gagal memuat data');
+      const data = await response.json();
       setActivities(data);
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'kesantrian');
+      console.error('Error fetching activities:', error);
+      toast.error('Gagal memuat data');
     } finally {
       setLoading(false);
     }
@@ -44,22 +47,86 @@ export default function ActivityManager() {
     fetchActivities();
   }, []);
 
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.title.trim()) {
+      errors.title = 'Judul Kegiatan wajib diisi';
+    } else if (formData.title.length < 3) {
+      errors.title = 'Judul minimal 3 karakter';
+    }
+
+    if (!formData.schedule.trim()) {
+      errors.schedule = 'Jadwal wajib diisi';
+    }
+
+    if (!formData.description.trim()) {
+      errors.description = 'Deskripsi wajib diisi';
+    } else if (formData.description.length < 10) {
+      errors.description = 'Deskripsi minimal 10 karakter';
+    }
+
+    if (formData.date) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(formData.date)) {
+        errors.date = 'Format tanggal tidak valid (YYYY-MM-DD)';
+      } else {
+        const d = new Date(formData.date);
+        if (isNaN(d.getTime())) {
+          errors.date = 'Tanggal tidak valid';
+        }
+      }
+    }
+
+    if (!formData.category) {
+      errors.category = 'Kategori wajib dipilih';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) {
+      toast.error('Mohon periksa kembali isian form Anda');
+      return;
+    }
+    
     try {
-      if (editingId) {
-        await updateDoc(doc(db, 'kesantrian', editingId), formData);
-        toast.success('Kegiatan diperbarui');
-      } else {
-        await addDoc(collection(db, 'kesantrian'), formData);
-        toast.success('Kegiatan ditambahkan');
-      }
+      const url = editingId ? `/api/kesantrian/${editingId}` : '/api/kesantrian';
+      const method = editingId ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) throw new Error('Gagal menyimpan kegiatan');
+
+      toast.success(editingId ? 'Kegiatan diperbarui' : 'Kegiatan ditambahkan');
       setEditingId(null);
       setIsAdding(false);
-      setFormData({ title: '', description: '', imageUrl: '', schedule: '', date: '' });
+      setFormData({ title: '', description: '', imageUrl: '', schedule: '', date: '', category: CATEGORY_OPTIONS[0] });
       fetchActivities();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'kesantrian');
+      console.error('Error saving activity:', error);
+      toast.error('Gagal menyimpan data');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`Hapus kegiatan ini?`)) return;
+    try {
+      const response = await fetch(`/api/kesantrian/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Gagal menghapus kegiatan');
+      toast.success('Kegiatan dihapus');
+      fetchActivities();
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      toast.error('Gagal menghapus data');
     }
   };
 
@@ -70,7 +137,9 @@ export default function ActivityManager() {
     </div>
   );
 
-  const sortedActivities = [...activities].sort((a, b) => {
+  const filteredActivities = activities.filter(act => categoryFilter === 'Semua' || act.category === categoryFilter);
+
+  const sortedActivities = [...filteredActivities].sort((a, b) => {
     if (sortOrder === 'asc') {
       return a.schedule.localeCompare(b.schedule);
     } else {
@@ -98,19 +167,19 @@ export default function ActivityManager() {
 
     // Fill empty slots
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-32 border border-gray-100 dark:border-white/5 bg-gray-50/30 dark:bg-slate-900/10" />);
+      days.push(<div key={`empty-${i}`} className="h-32 border border-gray-100 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-900/30 transition-colors" />);
     }
 
     // Fill days
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const dayActivities = activities.filter(act => act.date === dateStr);
+      const dayActivities = filteredActivities.filter(act => act.date === dateStr);
       const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
 
       days.push(
-        <div key={d} className={`h-32 border border-gray-100 dark:border-white/5 p-2 transition-colors hover:bg-pesantren-cream/20 dark:hover:bg-slate-800/30 group ${isToday ? 'bg-pesantren-gold/5' : 'bg-white dark:bg-slate-900'}`}>
+        <div key={d} className={`h-32 border border-gray-100 dark:border-slate-800 p-2 transition-colors hover:bg-pesantren-cream/20 dark:hover:bg-pesantren-gold/5 group ${isToday ? 'bg-pesantren-gold/5' : 'bg-white dark:bg-slate-900/40'}`}>
           <div className="flex justify-between items-start mb-1">
-            <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-black ${isToday ? 'bg-pesantren-gold text-white shadow-lg' : 'text-gray-400 group-hover:text-pesantren-gold'}`}>
+            <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-black ${isToday ? 'bg-pesantren-gold text-white shadow-lg' : 'admin-text-muted group-hover:text-pesantren-gold'}`}>
               {d}
             </span>
           </div>
@@ -120,9 +189,9 @@ export default function ActivityManager() {
                 key={act.id} 
                 onClick={() => {
                   setEditingId(act.id);
-                  setFormData({ title: act.title, description: act.description, imageUrl: act.imageUrl, schedule: act.schedule, date: act.date || '' });
+                  setFormData({ title: act.title, description: act.description, imageUrl: act.imageUrl, schedule: act.schedule, date: act.date || '', category: act.category || CATEGORY_OPTIONS[0] });
                 }}
-                className="px-2 py-1 bg-pesantren-dark/5 dark:bg-pesantren-gold/10 border-l-2 border-pesantren-gold rounded text-[8px] font-bold text-pesantren-dark dark:text-pesantren-gold truncate cursor-pointer hover:bg-pesantren-gold/20 transition-colors"
+                className="px-2 py-1 bg-pesantren-dark/5 dark:bg-white/5 border-l-2 border-pesantren-gold rounded text-[8px] font-bold admin-text-main truncate cursor-pointer hover:bg-pesantren-gold/20 transition-colors"
                 title={act.title}
               >
                 {act.title}
@@ -134,8 +203,8 @@ export default function ActivityManager() {
     }
 
     return (
-      <div className="bg-white dark:bg-slate-950 border border-gray-100 dark:border-white/10 rounded-[2rem] overflow-hidden shadow-2xl">
-        <div className="grid grid-cols-7 bg-pesantren-dark dark:bg-slate-900 border-b border-gray-200 dark:border-white/10">
+      <div className="admin-card border border-gray-100 dark:border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl transition-colors">
+        <div className="grid grid-cols-7 bg-pesantren-dark border-b border-gray-200 dark:border-slate-700">
           {dayNames.map(d => (
             <div key={d} className="py-4 text-center text-[10px] font-black uppercase tracking-widest text-white/50">{d}</div>
           ))}
@@ -151,20 +220,36 @@ export default function ActivityManager() {
     <div className="space-y-8 max-w-7xl mx-auto px-4 md:px-0 mb-20 text-left">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
         <div>
-          <h2 className="text-4xl font-serif font-black text-pesantren-dark dark:text-white">Manajemen <span className="text-pesantren-gold italic">Kegiatan</span></h2>
-          <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold mt-2">Atur rutinitas dan agenda harian santri</p>
+          <h2 className="text-4xl font-serif font-black admin-text-main transition-colors">Manajemen <span className="text-pesantren-gold italic">Kegiatan</span></h2>
+          <p className="text-[10px] admin-text-muted uppercase tracking-[0.2em] font-bold mt-2 transition-colors">Atur rutinitas dan agenda harian santri</p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex p-1 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-2xl shadow-sm">
+          <div className="flex p-1.5 bg-slate-100/50 dark:bg-slate-950/50 rounded-2xl border border-slate-100 dark:border-slate-800 backdrop-blur-sm overflow-x-auto transition-colors w-full lg:w-auto">
+            {['Semua', ...CATEGORY_OPTIONS].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                  categoryFilter === cat 
+                    ? 'bg-white dark:bg-slate-800 admin-text-primary shadow-lg shadow-black/5' 
+                    : 'admin-text-muted hover:admin-text-main'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex p-1 admin-card border border-gray-100 dark:border-slate-800 rounded-2xl shadow-sm transition-colors">
             <button 
               onClick={() => setViewMode('grid')}
-              className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark shadow-lg' : 'text-gray-400'}`}
+              className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'admin-btn-primary shadow-lg text-white' : 'admin-text-muted hover:text-pesantren-gold'}`}
             >
               Grid
             </button>
             <button 
               onClick={() => setViewMode('calendar')}
-              className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'calendar' ? 'bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark shadow-lg' : 'text-gray-400'}`}
+              className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'calendar' ? 'admin-btn-primary shadow-lg text-white' : 'admin-text-muted hover:text-pesantren-gold'}`}
             >
               Kalender
             </button>
@@ -177,7 +262,7 @@ export default function ActivityManager() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="px-6 py-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3 text-pesantren-dark dark:text-pesantren-gold"
+                className="px-6 py-4 admin-card border border-gray-100 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3 admin-text-main"
               >
                 {sortOrder === 'asc' ? <ArrowUpAZ size={16} /> : <ArrowDownZA size={16} />}
                 {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
@@ -189,15 +274,15 @@ export default function ActivityManager() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 p-2 rounded-2xl shadow-sm"
+                className="flex items-center gap-2 admin-card border border-gray-100 dark:border-slate-800 p-2 rounded-2xl shadow-sm transition-colors"
               >
-                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors text-pesantren-gold">
+                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-pesantren-gold">
                   <ArrowUpDown size={14} className="rotate-90" />
                 </button>
-                <span className="text-[10px] font-black uppercase tracking-widest px-4 dark:text-white">
+                <span className="text-[10px] font-black uppercase tracking-widest px-4 admin-text-main">
                   {currentMonth.toLocaleString('id-ID', { month: 'long', year: 'numeric' })}
                 </span>
-                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors text-pesantren-gold">
+                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-pesantren-gold">
                   <ArrowUpDown size={14} className="-rotate-90" />
                 </button>
               </motion.div>
@@ -206,7 +291,7 @@ export default function ActivityManager() {
 
           <button 
             onClick={() => { setIsAdding(!isAdding); setEditingId(null); }}
-            className="px-8 py-4 bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3"
+            className="px-8 py-4 admin-btn-primary rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-3 text-white"
           >
             {isAdding ? <X size={16} /> : <Plus size={16} />}
             {isAdding ? 'Batal' : 'Tambah Kegiatan'}
@@ -221,45 +306,61 @@ export default function ActivityManager() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             onSubmit={handleSave}
-            className="bg-white dark:bg-slate-900 border-2 border-pesantren-gold/20 p-10 rounded-[2.5rem] shadow-2xl space-y-8 mb-12"
+            className="admin-card border-2 border-pesantren-gold/20 p-10 rounded-[2.5rem] shadow-2xl space-y-8 mb-12 transition-colors"
           >
-             <div className="flex items-center gap-4 pb-6 border-b border-gray-50 dark:border-white/5">
-              <div className="w-12 h-12 bg-pesantren-gold/10 text-pesantren-gold rounded-2xl flex items-center justify-center">
+             <div className="flex items-center gap-4 pb-6 border-b border-gray-50 dark:border-slate-800 transition-colors">
+              <div className="w-12 h-12 bg-pesantren-gold/10 text-pesantren-gold rounded-2xl flex items-center justify-center transition-colors">
                 <Calendar size={24} />
               </div>
               <div>
-                <h4 className="text-xl font-serif font-bold text-pesantren-dark dark:text-white">{editingId ? 'Edit Kegiatan' : 'Tambah Kegiatan Harian'}</h4>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Lengkapi detail kegiatan santri</p>
+                <h4 className="text-xl font-serif font-bold admin-text-main transition-colors">{editingId ? 'Edit Kegiatan' : 'Tambah Kegiatan Harian'}</h4>
+                <p className="text-[10px] admin-text-muted font-bold uppercase tracking-widest mt-1 transition-colors">Lengkapi detail kegiatan santri</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Judul Kegiatan</label>
+                 <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest ml-1 transition-colors">Judul Kegiatan</label>
                  <input 
                    type="text" required
-                   className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 dark:text-white transition-all text-sm"
+                   className={`w-full bg-gray-50 dark:bg-slate-900/50 border ${formErrors.title ? 'border-rose-500' : 'border-gray-100 dark:border-slate-800'} p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 transition-all text-sm admin-text-main`}
                    value={formData.title}
-                   onChange={e => setFormData({...formData, title: e.target.value})}
+                   onChange={e => { setFormData({...formData, title: e.target.value}); setFormErrors({...formErrors, title: ''}); }}
                  />
+                 {formErrors.title && <p className="text-[10px] text-rose-500 px-1 font-bold">{formErrors.title}</p>}
               </div>
               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Jadwal (Contoh: Bada Maghrib)</label>
+                 <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest ml-1 transition-colors">Jadwal (Contoh: Bada Maghrib)</label>
                  <input 
                    type="text" required
-                   className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 dark:text-white transition-all text-sm"
+                   className={`w-full bg-gray-50 dark:bg-slate-900/50 border ${formErrors.schedule ? 'border-rose-500' : 'border-gray-100 dark:border-slate-800'} p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 transition-all text-sm admin-text-main`}
                    value={formData.schedule}
-                   onChange={e => setFormData({...formData, schedule: e.target.value})}
+                   onChange={e => { setFormData({...formData, schedule: e.target.value}); setFormErrors({...formErrors, schedule: ''}); }}
                  />
+                 {formErrors.schedule && <p className="text-[10px] text-rose-500 px-1 font-bold">{formErrors.schedule}</p>}
               </div>
               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tanggal (Opsional untuk Kalender)</label>
+                 <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest ml-1 transition-colors">Tanggal (Opsional untuk Kalender)</label>
                  <input 
                    type="date"
-                   className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 dark:text-white transition-all text-sm"
+                   className={`w-full bg-gray-50 dark:bg-slate-900/50 border ${formErrors.date ? 'border-rose-500' : 'border-gray-100 dark:border-slate-800'} p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 transition-all text-sm admin-text-main`}
                    value={formData.date}
-                   onChange={e => setFormData({...formData, date: e.target.value})}
+                   onChange={e => { setFormData({...formData, date: e.target.value}); setFormErrors({...formErrors, date: ''}); }}
                  />
+                 {formErrors.date && <p className="text-[10px] text-rose-500 px-1 font-bold">{formErrors.date}</p>}
+              </div>
+              <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                 <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest ml-1 transition-colors">Kategori Kegiatan</label>
+                 <select 
+                   className={`w-full bg-gray-50 dark:bg-slate-900/50 border ${formErrors.category ? 'border-rose-500' : 'border-gray-100 dark:border-slate-800'} p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 transition-all text-sm admin-text-main`}
+                   value={formData.category}
+                   onChange={e => { setFormData({...formData, category: e.target.value}); setFormErrors({...formErrors, category: ''}); }}
+                 >
+                   {CATEGORY_OPTIONS.map(cat => (
+                     <option key={cat} value={cat}>{cat}</option>
+                   ))}
+                 </select>
+                 {formErrors.category && <p className="text-[10px] text-rose-500 px-1 font-bold">{formErrors.category}</p>}
               </div>
               <div className="md:col-span-2 lg:col-span-3">
                  <ImageUploadInput 
@@ -269,27 +370,28 @@ export default function ActivityManager() {
                  />
               </div>
               <div className="md:col-span-2 lg:col-span-3 space-y-2">
-                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Deskripsi Singkat</label>
+                 <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest ml-1 transition-colors">Deskripsi Singkat</label>
                  <textarea 
                     required rows={3}
-                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 dark:text-white transition-all text-sm resize-none"
+                    className={`w-full bg-gray-50 dark:bg-slate-900/50 border ${formErrors.description ? 'border-rose-500' : 'border-gray-100 dark:border-slate-800'} p-4 rounded-xl outline-none focus:ring-2 focus:ring-pesantren-gold/50 transition-all text-sm resize-none admin-text-main`}
                     value={formData.description}
-                    onChange={e => setFormData({...formData, description: e.target.value})}
+                    onChange={e => { setFormData({...formData, description: e.target.value}); setFormErrors({...formErrors, description: ''}); }}
                  />
+                 {formErrors.description && <p className="text-[10px] text-rose-500 px-1 font-bold">{formErrors.description}</p>}
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-8 border-t border-gray-50 dark:border-white/5">
+            <div className="flex justify-end gap-3 pt-8 border-t border-gray-50 dark:border-slate-800 transition-colors">
                <button 
                 type="button" 
                 onClick={() => { setIsAdding(false); setEditingId(null); }}
-                className="px-6 py-3 text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                className="px-6 py-3 text-xs font-bold admin-text-muted hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
                 Batal
               </button>
               <button 
                 type="submit" 
-                className="group bg-pesantren-dark dark:bg-pesantren-gold text-white dark:text-pesantren-dark px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
+                className="group admin-btn-primary px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:opacity-90 active:scale-95 transition-all text-white"
               >
                 <Save size={16} className="inline mr-2 group-hover:rotate-12 transition-transform" />
                 Simpan Kegiatan
@@ -309,33 +411,26 @@ export default function ActivityManager() {
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
             {sortedActivities.length === 0 ? (
-              <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-slate-900/50 rounded-[2.5rem] border border-dashed border-gray-100 dark:border-white/5">
-                 <Calendar className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                 <p className="text-gray-400 font-bold italic">Belum ada kegiatan terdaftar</p>
+              <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-slate-900/50 rounded-[2.5rem] border border-dashed border-gray-100 dark:border-slate-800 transition-colors">
+                 <Calendar className="w-12 h-12 admin-text-muted mx-auto mb-4 transition-colors" />
+                 <p className="admin-text-muted font-bold italic transition-colors">Belum ada kegiatan terdaftar</p>
               </div>
             ) : sortedActivities.map((act) => (
-              <div key={act.id} className="group bg-white dark:bg-slate-900 rounded-[2rem] border border-gray-100 dark:border-white/5 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500">
-                <div className="aspect-video relative overflow-hidden bg-gray-100 dark:bg-slate-800">
+              <div key={act.id} className="group admin-card rounded-[2rem] border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500">
+                <div className="aspect-video relative overflow-hidden bg-gray-100 dark:bg-slate-900 transition-colors">
                   <img src={act.imageUrl || 'https://images.unsplash.com/photo-1541829070764-84a7d30dee6b?q=80&w=2070&auto=format&fit=crop'} alt={act.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-sm">
                     <button 
                       onClick={() => {
                         setEditingId(act.id);
-                        setFormData({ title: act.title, description: act.description, imageUrl: act.imageUrl, schedule: act.schedule, date: act.date || '' });
+                        setFormData({ title: act.title, description: act.description, imageUrl: act.imageUrl, schedule: act.schedule, date: act.date || '', category: act.category || CATEGORY_OPTIONS[0] });
                       }}
                       className="w-12 h-12 bg-white text-pesantren-dark rounded-xl flex items-center justify-center hover:bg-pesantren-gold transition-colors shadow-lg"
                     >
                       <Settings2 size={20} />
                     </button>
                     <button 
-                      onClick={async () => {
-                        if (!confirm(`Hapus kegiatan ${act.title}?`)) return;
-                        try {
-                          await deleteDoc(doc(db, 'kesantrian', act.id));
-                          toast.success('Kegiatan dihapus');
-                          fetchActivities();
-                        } catch (e) { handleFirestoreError(e, OperationType.DELETE, 'kesantrian'); }
-                      }}
+                      onClick={() => handleDelete(act.id)}
                       className="w-12 h-12 bg-red-500 text-white rounded-xl flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
                     >
                       <Trash2 size={20} />
@@ -343,12 +438,19 @@ export default function ActivityManager() {
                   </div>
                 </div>
                 <div className="p-8 text-left">
-                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-pesantren-gold mb-3">
-                    <Calendar size={12} />
-                    {act.schedule} {act.date && `• ${new Date(act.date).toLocaleDateString('id-ID')}`}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-pesantren-gold">
+                      <Calendar size={12} />
+                      {act.schedule} {act.date && `• ${new Date(act.date).toLocaleDateString('id-ID')}`}
+                    </div>
+                    {act.category && (
+                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-[8px] font-black uppercase tracking-widest rounded text-gray-500 dark:text-slate-400">
+                        {act.category}
+                      </span>
+                    )}
                   </div>
-                  <h4 className="text-xl font-bold text-pesantren-dark dark:text-white mb-3 leading-tight">{act.title}</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3">
+                  <h4 className="text-xl font-bold admin-text-main mb-3 leading-tight transition-colors">{act.title}</h4>
+                  <p className="text-xs admin-text-muted leading-relaxed line-clamp-3 transition-colors">
                     {act.description}
                   </p>
                 </div>

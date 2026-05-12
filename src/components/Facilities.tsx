@@ -35,21 +35,36 @@ export default function Facilities() {
             return (
               <motion.div
                 key={fac.id}
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                whileInView={{ opacity: 1, scale: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                whileHover={{ 
+                  y: -12,
+                  scale: 1.02,
+                  borderColor: "rgba(5, 150, 105, 0.3)",
+                  boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                  transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] }
+                }}
                 transition={{ 
-                  duration: 0.6, 
-                  delay: (index % 4) * 0.1,
+                  duration: 0.8, 
+                  delay: index * 0.1,
                   ease: [0.16, 1, 0.3, 1]
                 }}
-                className="bg-white p-10 rounded-3xl border border-pesantren-border shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all group"
+                className="bg-white p-10 rounded-[2.5rem] border border-pesantren-border shadow-[0_8px_30px_rgb(0,0,0,0.02)] group relative overflow-hidden"
               >
-                <div className="w-16 h-16 bg-pesantren-green/5 rounded-2xl flex items-center justify-center text-pesantren-green mb-8 group-hover:bg-pesantren-green group-hover:text-white transition-colors">
+                <div className="absolute -right-8 -top-8 w-24 h-24 bg-pesantren-gold/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+                
+                <div className="w-16 h-16 bg-pesantren-green/5 rounded-2xl flex items-center justify-center text-pesantren-green mb-8 group-hover:bg-pesantren-green group-hover:text-white group-hover:rotate-6 transition-all duration-500 shadow-inner">
                    <IconComponent size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-pesantren-dark mb-4 font-serif">{fac.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed font-serif italic">{fac.description}</p>
+                
+                <h3 className="text-xl font-bold text-pesantren-dark mb-4 font-serif relative z-10">{fac.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed font-serif italic relative z-10">{fac.description}</p>
+                
+                <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-between opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-500">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-pesantren-gold">Lihat Detail</span>
+                  <div className="w-6 h-px bg-pesantren-gold/30" />
+                </div>
               </motion.div>
             );
           })}

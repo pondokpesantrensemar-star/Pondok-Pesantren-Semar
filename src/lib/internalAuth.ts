@@ -1,8 +1,3 @@
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
-
-import { handleFirestoreError, OperationType } from './firestoreUtils';
-
 export interface InternalUser {
   id: string;
   username: string;
@@ -24,30 +19,21 @@ export const internalAuth = {
   },
 
   login: async (username: string, pass: string): Promise<InternalUser> => {
-    // We store admin docs by their ID which is "username@pesantren.local" 
-    // or just the username as the ID now to keep it simple.
-    const cleanUsername = username.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-    const docId = `${cleanUsername}@pesantren.local`;
-    
-    let adminDoc;
-    try {
-      adminDoc = await getDoc(doc(db, 'admins', docId));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.GET, `admins/${docId}`);
-      throw err;
-    }
-    
-    if (!adminDoc.exists()) {
-      throw new Error('User tidak ditemukan.');
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password: pass }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Login gagal.');
     }
 
-    const data = adminDoc.data();
-    if (data.password !== pass) {
-      throw new Error('Password salah.');
-    }
+    const data = await response.json();
 
     const user: InternalUser = {
-      id: adminDoc.id,
+      id: data.id,
       username: data.username,
       access: data.access,
       type: 'credential'

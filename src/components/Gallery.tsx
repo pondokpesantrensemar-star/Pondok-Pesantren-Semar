@@ -1,5 +1,9 @@
 import { motion } from "motion/react";
 import { useGallery } from "../hooks/useContent";
+import { useState, useEffect } from "react";
+import { internalAuth } from "../lib/internalAuth";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 
 const defaultImages = [
   "https://images.unsplash.com/photo-1544161515-4af6b1d462c2?auto=format&fit=crop&q=80&w=600&h=600",
@@ -12,16 +16,29 @@ const defaultImages = [
 
 export default function Gallery() {
   const { images: dbImages, loading } = useGallery();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(!!internalAuth.getUser());
+  }, []);
   
-  const displayImages = dbImages.length > 0 ? dbImages : defaultImages.map((url, i) => ({
-    url,
-    title: `Gallery ${i+1}`,
-    category: "Kegiatan",
-    rotation: 0,
-    brightness: 100,
-    contrast: 100,
-    grayscale: false
-  }));
+  const optimizeUnsplash = (url: string, width = 600, quality = 80) => {
+    if (!url.includes('unsplash.com')) return url;
+    const baseUrl = url.split('?')[0];
+    return `${baseUrl}?auto=format,compress&q=${quality}&w=${width}&fit=crop`;
+  };
+
+  const displayImages = dbImages.length > 0 
+    ? dbImages.map(img => ({ ...img, url: optimizeUnsplash(img.url) }))
+    : defaultImages.map((url, i) => ({
+        url: optimizeUnsplash(url),
+        title: `Gallery ${i+1}`,
+        category: "Kegiatan",
+        rotation: 0,
+        brightness: 100,
+        contrast: 100,
+        grayscale: false
+      }));
 
   if (!loading && displayImages.length === 0) return null;
 
@@ -96,7 +113,7 @@ export default function Gallery() {
                 ease: [0.21, 0.47, 0.32, 0.98] 
               }}
               whileHover={{ y: -10, scale: 1.01 }}
-              className={`relative group overflow-hidden rounded-[2rem] md:rounded-[3rem] cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-700 bg-gray-50 dark:bg-slate-900 border border-transparent hover:border-pesantren-gold/30 ${getSpanClass(index)}`}
+              className={`relative group overflow-hidden rounded-[2rem] md:rounded-[3rem] cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-700 bg-gray-50 border border-transparent hover:border-pesantren-gold/30 ${getSpanClass(index)}`}
             >
               <img
                 src={image.url}
@@ -109,11 +126,11 @@ export default function Gallery() {
               
               {/* Refined Overlay Decor */}
               <div className="absolute inset-x-4 bottom-4 z-20 translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-5 rounded-2xl md:rounded-3xl shadow-2xl border border-white/20">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-pesantren-green dark:text-pesantren-gold mb-1 block">
+                <div className="bg-white/95 backdrop-blur-md p-5 rounded-2xl md:rounded-3xl shadow-2xl border border-white/20">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-pesantren-green mb-1 block">
                     {image.category || "Dokumentasi"}
                   </span>
-                  <h4 className="text-pesantren-dark dark:text-white font-serif font-bold text-sm md:text-base leading-tight">
+                  <h4 className="text-pesantren-dark font-serif font-bold text-sm md:text-base leading-tight">
                     {image.title}
                   </h4>
                 </div>
@@ -125,6 +142,26 @@ export default function Gallery() {
           );
         })}
       </div>
+
+      {/* See All Button - Conditional for User Session */}
+      {isLoggedIn && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.5 }}
+          className="mt-16 flex justify-center relative z-10"
+        >
+          <Link 
+            to="/admin/gallery"
+            className="group relative inline-flex items-center gap-4 bg-pesantren-dark text-white px-10 py-5 rounded-full font-black text-[11px] uppercase tracking-[0.3em] overflow-hidden transition-all hover:pr-14 hover:shadow-2xl hover:shadow-pesantren-dark/20"
+          >
+            <span className="relative z-10">Lihat Semua Galeri</span>
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-2 relative z-10" />
+            <div className="absolute inset-0 bg-pesantren-gold translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+          </Link>
+        </motion.div>
+      )}
     </section>
   );
 }

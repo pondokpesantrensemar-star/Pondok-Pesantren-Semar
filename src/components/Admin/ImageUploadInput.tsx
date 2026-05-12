@@ -24,7 +24,17 @@ export default function ImageUploadInput({ value, onChange, label, placeholder, 
     try {
       setIsUploading(true);
       const base64 = await compressImage(file);
-      onChange(base64);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 })
+      });
+      
+      if (!response.ok) throw new Error('Upload failed');
+      
+      const data = await response.json();
+      onChange(data.url);
       setShowUrlInput(false);
     } catch (error) {
       console.error("Upload error:", error);
@@ -34,22 +44,22 @@ export default function ImageUploadInput({ value, onChange, label, placeholder, 
     }
   };
 
-  const isBase64 = value && value.startsWith('data:');
+  const isUploaded = value && (value.startsWith('data:') || value.startsWith('/api/images'));
 
   return (
     <div className={`space-y-2 ${className}`}>
-      {label && <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">{label}</label>}
+      {label && <label className="text-[10px] font-bold admin-text-muted uppercase tracking-widest mb-2 block transition-colors">{label}</label>}
       
       <div className="space-y-3">
         {/* Upload Area */}
-        {!showUrlInput && isBase64 ? (
-          <div className="relative group rounded-xl overflow-hidden border border-pesantren-green/30 bg-pesantren-green/5 dark:bg-pesantren-green/10 p-2 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 dark:bg-slate-800 shrink-0">
+        {!showUrlInput && isUploaded ? (
+          <div className="relative group rounded-xl overflow-hidden border border-pesantren-green/30 dark:border-pesantren-green/50 bg-pesantren-green/5 p-2 flex items-center gap-3 transition-colors">
+            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 dark:bg-slate-800 shrink-0 transition-colors">
               <img src={value} alt="Preview" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-pesantren-green uppercase truncate">Gambar Terpilih (Base64)</p>
-              <p className="text-[9px] text-gray-400 dark:text-gray-500">Siap disimpan di database</p>
+              <p className="text-[10px] font-bold text-pesantren-green uppercase truncate">Gambar Terpilih (Upload)</p>
+              <p className="text-[9px] admin-text-muted transition-colors transition-colors">Siap disimpan di database</p>
             </div>
             <button 
               type="button"
@@ -57,7 +67,7 @@ export default function ImageUploadInput({ value, onChange, label, placeholder, 
                 onChange('');
                 setShowUrlInput(true);
               }}
-              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 admin-text-muted hover:text-red-500 transition-colors"
             >
               <Trash2 size={16} />
             </button>
@@ -68,7 +78,7 @@ export default function ImageUploadInput({ value, onChange, label, placeholder, 
               type="button"
               disabled={isUploading}
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-100 dark:border-white/5 rounded-xl hover:border-pesantren-green hover:bg-pesantren-green/5 dark:hover:bg-pesantren-green/10 transition-all text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-pesantren-green"
+              className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-xl hover:border-pesantren-green hover:bg-pesantren-green/5 transition-all text-xs font-bold admin-text-muted hover:text-pesantren-green"
             >
               {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
               Upload dari HP / PC
@@ -76,7 +86,7 @@ export default function ImageUploadInput({ value, onChange, label, placeholder, 
             <button
               type="button"
               onClick={() => setShowUrlInput(true)}
-              className="flex items-center justify-center gap-2 p-4 border border-gray-100 dark:border-white/5 rounded-xl bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 transition-all text-xs font-bold text-gray-400 dark:text-gray-500"
+              className="flex items-center justify-center gap-2 p-4 border border-gray-100 dark:border-slate-800 rounded-xl bg-gray-50 dark:bg-slate-900/50 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all text-xs font-bold admin-text-muted"
             >
               <LinkIcon size={16} />
               Gunakan Link URL
@@ -86,15 +96,15 @@ export default function ImageUploadInput({ value, onChange, label, placeholder, 
 
         {showUrlInput && (
           <div className="relative">
-            <LinkIcon size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <LinkIcon size={14} className="absolute left-4 top-1/2 -translate-y-1/2 admin-text-muted transition-colors" />
             <input
               type="url"
               placeholder={placeholder || "https://..."}
-              className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-4 pl-12 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none text-xs font-medium text-pesantren-dark dark:text-white transition-colors"
-              value={isBase64 ? '' : value}
+              className="w-full bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-800 p-4 pl-12 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none text-xs font-medium admin-text-main transition-colors"
+              value={isUploaded ? '' : value}
               onChange={(e) => onChange(e.target.value)}
             />
-            {isBase64 && (
+            {isUploaded && (
               <button 
                 type="button"
                 onClick={() => setShowUrlInput(false)}

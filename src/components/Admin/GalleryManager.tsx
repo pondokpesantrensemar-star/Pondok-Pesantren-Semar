@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
-import { handleFirestoreError, OperationType } from '../../lib/firestoreUtils';
 import { Plus, Trash2, Image as ImageIcon, Type, RotateCw, Settings2, Check, X, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
-import { updateDoc } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
 import ImageUploadInput from './ImageUploadInput';
 
@@ -36,16 +32,15 @@ export default function GalleryManager() {
     }
   }, [location.search]);
 
-  const path = 'gallery';
-
   const fetchImages = async () => {
     try {
-      const q = query(collection(db, path), orderBy('order', 'asc'));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as GalleryItem));
+      const response = await fetch('/api/gallery');
+      if (!response.ok) throw new Error('Gagal memuat galeri');
+      const data = await response.json();
       setImages(data);
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.error('Error fetching gallery:', error);
+      toast.error('Gagal memuat galeri');
     } finally {
       setLoading(false);
     }
@@ -58,27 +53,36 @@ export default function GalleryManager() {
     if (!formData.url || !formData.title) return;
 
     try {
-      await addDoc(collection(db, path), {
-        ...formData,
-        order: images.length + 1
+      const response = await fetch('/api/gallery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          order: images.length + 1
+        }),
       });
+      if (!response.ok) throw new Error('Gagal menambah foto');
+      
       setFormData({ url: '', title: '', category: 'Kegiatan', order: 0 });
       setIsAdding(false);
       toast.success('Foto berhasil ditambahkan');
       fetchImages();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, path);
+      console.error('Error adding image:', error);
+      toast.error('Gagal menambah foto');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Hapus foto ini dari galeri?')) return;
     try {
-      await deleteDoc(doc(db, path, id));
+      const response = await fetch(`/api/gallery/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Gagal menghapus foto');
       toast.success('Foto dihapus dari galeri');
       fetchImages();
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, path);
+      console.error('Error deleting image:', error);
+      toast.error('Gagal menghapus foto');
     }
   };
 
@@ -87,13 +91,19 @@ export default function GalleryManager() {
     if (!editingImage) return;
 
     try {
-      const { id, ...data } = editingImage;
-      await updateDoc(doc(db, path, id), data);
+      const response = await fetch(`/api/gallery/${editingImage.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingImage),
+      });
+      if (!response.ok) throw new Error('Gagal memperbarui foto');
+      
       setEditingImage(null);
       toast.success('Foto berhasil diperbarui');
       fetchImages();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, path);
+      console.error('Error updating image:', error);
+      toast.error('Gagal memperbarui foto');
     }
   };
 
@@ -109,21 +119,21 @@ export default function GalleryManager() {
     };
   };
 
-  if (loading) return <div>Memuat galeri...</div>;
+  if (loading) return <div className="p-8 admin-text-muted">Memuat galeri...</div>;
 
   return (
-    <div className="space-y-8 p-2">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-white/5 shadow-sm transition-colors">
+    <div className="space-y-8 p-2 text-left transition-colors">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 admin-card p-6 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <div>
-          <h3 className="text-xl font-serif font-bold text-pesantren-dark dark:text-white">Kelola Galeri Foto</h3>
-          <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">Atur dokumentasi momen pesantren secara real-time</p>
+          <h3 className="text-xl font-serif font-bold admin-text-main transition-colors">Kelola Galeri Foto</h3>
+          <p className="text-xs admin-text-muted font-medium transition-colors">Atur dokumentasi momen pesantren secara real-time</p>
         </div>
         <button 
           onClick={() => {
             setIsAdding(!isAdding);
             if (editingImage) setEditingImage(null);
           }}
-          className={`${isAdding ? 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400' : 'bg-pesantren-green text-white'} px-6 py-3 rounded-2xl flex items-center gap-2 text-sm font-bold active:scale-95 transition-all shadow-lg ${!isAdding && 'shadow-pesantren-green/20'}`}
+          className={`${isAdding ? 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300' : 'admin-btn-primary shadow-lg text-white'} px-6 py-3 rounded-2xl flex items-center gap-2 text-sm font-bold active:scale-95 transition-all outline-none`}
         >
           {isAdding ? <X size={18} /> : <Plus size={18} />}
           {isAdding ? 'Tutup Panel' : 'Tambah Foto'}
@@ -136,11 +146,11 @@ export default function GalleryManager() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white dark:bg-slate-900 border border-pesantren-border dark:border-white/5 p-8 rounded-3xl shadow-xl mb-8 transition-colors"
+            className="admin-card border border-gray-100 dark:border-slate-800 p-8 rounded-3xl shadow-xl mb-8 transition-colors"
           >
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-6 transition-colors">
               <Plus className="text-pesantren-green" />
-              <h4 className="font-bold text-lg text-pesantren-dark dark:text-white">Tambah Foto Baru</h4>
+              <h4 className="font-bold text-lg admin-text-main transition-colors">Tambah Foto Baru</h4>
             </div>
             <form onSubmit={handleAdd} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -153,22 +163,22 @@ export default function GalleryManager() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 flex items-center gap-2">
+                  <label className="text-xs font-bold uppercase tracking-widest admin-text-muted flex items-center gap-2 transition-colors">
                     <Type size={14} /> Judul / Keterangan
                   </label>
                   <input 
                     type="text" 
                     placeholder="Contoh: Shalat Berjamaah"
                     required
-                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 p-4 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none text-pesantren-dark dark:text-white transition-colors"
+                    className="w-full bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 p-4 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none admin-text-main transition-colors"
                     value={formData.title}
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Kategori</label>
+                  <label className="text-xs font-bold uppercase tracking-widest admin-text-muted transition-colors">Kategori</label>
                   <select 
-                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 p-4 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none text-pesantren-dark dark:text-white transition-colors"
+                    className="w-full bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 p-4 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none admin-text-main transition-colors"
                     value={formData.category}
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
                   >
@@ -178,10 +188,10 @@ export default function GalleryManager() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Urutan Tampil</label>
+                  <label className="text-xs font-bold uppercase tracking-widest admin-text-muted transition-colors">Urutan Tampil</label>
                   <input 
                     type="number" 
-                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-white/5 p-4 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none text-pesantren-dark dark:text-white transition-colors"
+                    className="w-full bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 p-4 rounded-xl focus:ring-2 focus:ring-pesantren-green outline-none admin-text-main transition-colors"
                     value={formData.order}
                     onChange={e => setFormData({ ...formData, order: parseInt(e.target.value) })}
                   />
@@ -189,8 +199,8 @@ export default function GalleryManager() {
               </div>
               
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setIsAdding(false)} className="px-6 py-3 font-bold text-gray-500 dark:text-gray-400">Batal</button>
-                <button type="submit" className="bg-pesantren-green text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-pesantren-green/20">Simpan Foto</button>
+                <button type="button" onClick={() => setIsAdding(false)} className="px-6 py-3 font-bold admin-text-muted hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Batal</button>
+                <button type="submit" className="admin-btn-primary px-8 py-3 rounded-xl font-bold shadow-lg shadow-black/10 transition-all hover:opacity-90 active:scale-95 text-white">Simpan Foto</button>
               </div>
             </form>
           </motion.div>
@@ -201,16 +211,16 @@ export default function GalleryManager() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white dark:bg-slate-900 border border-pesantren-gold/30 p-8 rounded-3xl shadow-xl mb-8 ring-1 ring-pesantren-gold/20 transition-colors"
+            className="admin-card border border-pesantren-gold/30 p-8 rounded-3xl shadow-xl mb-8 ring-1 ring-pesantren-gold/20 transition-colors"
           >
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 <Settings2 className="text-pesantren-gold" />
-                <h4 className="font-bold text-lg text-pesantren-dark dark:text-white">Edit Foto: {editingImage.title}</h4>
+                <h4 className="font-bold text-lg admin-text-main transition-colors">Edit Foto: {editingImage.title}</h4>
               </div>
               <button 
                 onClick={() => setEditingImage(null)}
-                className="text-gray-400 hover:text-red-500 transition-colors"
+                className="admin-text-muted hover:text-red-500 transition-colors"
               >
                 <X size={24} />
               </button>
@@ -220,7 +230,7 @@ export default function GalleryManager() {
               {/* Preview */}
               <div className="space-y-4">
                 <div className="flex justify-between items-end">
-                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Pratinjau Hasil</label>
+                  <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest transition-colors transition-colors">Pratinjau Hasil</label>
                   <button 
                     onClick={() => setEditingImage({ 
                       ...editingImage, 
@@ -235,7 +245,7 @@ export default function GalleryManager() {
                   </button>
                 </div>
                 <div 
-                  className="aspect-video bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center relative border-4 border-gray-100 dark:border-white/5 cursor-pointer group/preview"
+                  className="aspect-video bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center relative border-4 border-gray-100 dark:border-slate-800 cursor-pointer group/preview transition-colors"
                   onClick={() => {
                     const nextRot = ((editingImage.rotation || 0) + 90) % 360;
                     setEditingImage({ ...editingImage, rotation: nextRot });
@@ -260,7 +270,7 @@ export default function GalleryManager() {
                     PREVIEW
                   </div>
                 </div>
-                <p className="text-[10px] text-center text-gray-400 dark:text-gray-500 italic">Tip: Klik pada gambar untuk merotasi 90° cepat</p>
+                <p className="text-[10px] text-center admin-text-muted italic transition-colors transition-colors">Tip: Klik pada gambar untuk merotasi 90° cepat</p>
               </div>
 
               {/* Controls */}
@@ -277,21 +287,21 @@ export default function GalleryManager() {
                   </div>
                   <div className="space-y-2 flex flex-col justify-between">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                      <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest flex items-center gap-2 transition-colors transition-colors">
                         <Type size={14} /> Judul Gambar
                       </label>
                       <input 
                         type="text" 
-                        className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-3 rounded-xl focus:ring-2 focus:ring-pesantren-gold outline-none text-xs font-medium text-pesantren-dark dark:text-white transition-colors"
+                        className="w-full bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-800 p-3 rounded-xl focus:ring-2 focus:ring-pesantren-gold outline-none text-xs font-medium admin-text-main transition-colors"
                         value={editingImage.title}
                         onChange={e => setEditingImage({ ...editingImage, title: e.target.value })}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Kategori</label>
+                        <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest transition-colors transition-colors">Kategori</label>
                         <select 
-                          className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-3 rounded-xl focus:ring-2 focus:ring-pesantren-gold outline-none text-xs font-medium appearance-none text-pesantren-dark dark:text-white transition-colors"
+                          className="w-full bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-800 p-3 rounded-xl focus:ring-2 focus:ring-pesantren-gold outline-none text-xs font-medium appearance-none admin-text-main transition-colors"
                           value={editingImage.category}
                           onChange={e => setEditingImage({ ...editingImage, category: e.target.value })}
                         >
@@ -301,10 +311,10 @@ export default function GalleryManager() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Urutan</label>
+                        <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest transition-colors transition-colors">Urutan</label>
                         <input 
                           type="number" 
-                          className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-white/5 p-3 rounded-xl focus:ring-2 focus:ring-pesantren-gold outline-none text-xs font-medium text-pesantren-dark dark:text-white transition-colors"
+                          className="w-full bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-800 p-3 rounded-xl focus:ring-2 focus:ring-pesantren-gold outline-none text-xs font-medium admin-text-main transition-colors"
                           value={editingImage.order}
                           onChange={e => setEditingImage({ ...editingImage, order: parseInt(e.target.value) || 0 })}
                         />
@@ -314,7 +324,7 @@ export default function GalleryManager() {
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                  <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest flex items-center gap-2 transition-colors transition-colors">
                     <RotateCw size={14} /> Rotasi Gambar
                   </label>
                   <div className="flex gap-2">
@@ -322,7 +332,7 @@ export default function GalleryManager() {
                       <button
                         key={deg}
                         onClick={() => setEditingImage({ ...editingImage, rotation: deg })}
-                        className={`flex-1 py-3 rounded-xl font-bold transition-all border ${editingImage.rotation === deg ? 'bg-pesantren-dark dark:bg-slate-700 text-white border-pesantren-dark dark:border-white/20 shadow-lg' : 'bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-gray-500 border-gray-100 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20'}`}
+                        className={`flex-1 py-3 rounded-xl font-bold transition-all border ${editingImage.rotation === deg ? 'admin-btn-primary border-transparent shadow-lg text-white' : 'bg-gray-50 dark:bg-slate-900/50 admin-text-muted border-gray-100 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-600'}`}
                       >
                         {deg}°
                       </button>
@@ -331,19 +341,19 @@ export default function GalleryManager() {
                 </div>
 
                 <div className="space-y-6">
-                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                  <label className="text-[10px] font-black admin-text-muted uppercase tracking-widest flex items-center gap-2 transition-colors transition-colors">
                     <SlidersHorizontal size={14} /> Penyesuaian Visual
                   </label>
                   
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-gray-500 dark:text-gray-400">Kecerahan (Brightness)</span>
+                        <span className="admin-text-muted transition-colors transition-colors">Kecerahan (Brightness)</span>
                         <span className="text-pesantren-gold">{editingImage.brightness || 100}%</span>
                       </div>
                       <input 
                         type="range" min="50" max="150" step="1"
-                        className="w-full accent-pesantren-gold h-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        className="w-full accent-pesantren-gold h-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer transition-colors"
                         value={editingImage.brightness || 100}
                         onChange={e => setEditingImage({ ...editingImage, brightness: parseInt(e.target.value) })}
                       />
@@ -351,12 +361,12 @@ export default function GalleryManager() {
 
                     <div className="space-y-2">
                       <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-gray-500 dark:text-gray-400">Kontras (Contrast)</span>
+                        <span className="admin-text-muted transition-colors transition-colors">Kontras (Contrast)</span>
                         <span className="text-pesantren-gold">{editingImage.contrast || 100}%</span>
                       </div>
                       <input 
                         type="range" min="50" max="150" step="1"
-                        className="w-full accent-pesantren-gold h-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        className="w-full accent-pesantren-gold h-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer transition-colors"
                         value={editingImage.contrast || 100}
                         onChange={e => setEditingImage({ ...editingImage, contrast: parseInt(e.target.value) })}
                       />
@@ -367,17 +377,17 @@ export default function GalleryManager() {
                         onClick={() => setEditingImage({ ...editingImage, grayscale: !editingImage.grayscale })}
                         className={`w-12 h-6 rounded-full p-1 transition-colors ${editingImage.grayscale ? 'bg-pesantren-green' : 'bg-gray-200 dark:bg-slate-800'}`}
                       >
-                        <div className={`w-4 h-4 bg-white dark:bg-slate-400 rounded-full transition-transform ${editingImage.grayscale ? 'translate-x-6' : 'translate-x-0'}`} />
+                        <div className={`w-4 h-4 bg-white rounded-full transition-transform ${editingImage.grayscale ? 'translate-x-6' : 'translate-x-0'}`} />
                       </div>
-                      <span className="text-sm font-bold text-gray-600 dark:text-gray-400 group-hover:text-pesantren-dark dark:group-hover:text-white transition-colors">Efek Hitam Putih (Grayscale)</span>
+                      <span className="text-sm font-bold admin-text-muted group-hover:admin-text-main transition-colors transition-colors">Efek Hitam Putih (Grayscale)</span>
                     </label>
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-6 border-t border-gray-100 dark:border-white/5">
+                <div className="flex gap-3 pt-6 border-t border-gray-100 dark:border-slate-800 transition-colors">
                   <button 
                     onClick={handleUpdate}
-                    className="flex-1 bg-pesantren-dark dark:bg-slate-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-black dark:hover:bg-slate-600 transition-all shadow-xl shadow-black/10"
+                    className="flex-1 admin-btn-primary py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-black/10 text-white"
                   >
                     <Check size={18} /> Simpan Perubahan
                   </button>
@@ -390,8 +400,8 @@ export default function GalleryManager() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {images.map((img) => (
-          <div key={img.id} className="group relative bg-white dark:bg-slate-900 border border-gray-100 dark:border-white/5 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500">
-            <div className="aspect-video relative overflow-hidden bg-gray-100 dark:bg-slate-800">
+          <div key={img.id} className="group relative admin-card border border-gray-100 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500">
+            <div className="aspect-video relative overflow-hidden bg-gray-100 dark:bg-slate-900 transition-colors">
               <img 
                 src={img.url} 
                 alt={img.title} 
@@ -402,7 +412,7 @@ export default function GalleryManager() {
                  <div className="flex gap-2">
                    <button 
                     onClick={() => setEditingImage(img)}
-                    className="bg-white dark:bg-slate-800 text-pesantren-dark dark:text-white p-3 rounded-2xl hover:bg-pesantren-gold transition-all hover:scale-110 shadow-lg"
+                    className="bg-white text-pesantren-dark p-3 rounded-2xl hover:bg-pesantren-gold transition-all hover:scale-110 shadow-lg"
                     title="Edit Gambar"
                   >
                     <Settings2 size={20} />
@@ -426,7 +436,7 @@ export default function GalleryManager() {
             <div className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-bold text-pesantren-dark dark:text-white leading-tight">{img.title}</h4>
+                  <h4 className="font-bold admin-text-main leading-tight transition-colors transition-colors">{img.title}</h4>
                   <p className="text-[10px] text-pesantren-green font-bold uppercase tracking-widest mt-1">{img.category}</p>
                 </div>
                 <span className="text-xs font-serif italic text-pesantren-gold font-bold">#{img.order}</span>
@@ -436,9 +446,9 @@ export default function GalleryManager() {
         ))}
 
         {images.length === 0 && !isAdding && (
-          <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-200 dark:border-white/5 rounded-3xl">
-            <ImageIcon className="mx-auto text-gray-300 dark:text-gray-700 mb-4" size={48} />
-            <p className="text-gray-400 dark:text-gray-500">Belum ada foto. Klik "Tambah Foto" untuk memulai.</p>
+          <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-3xl transition-colors">
+            <ImageIcon className="mx-auto admin-text-muted mb-4 transition-colors transition-colors" size={48} />
+            <p className="admin-text-muted transition-colors transition-colors">Belum ada foto. Klik "Tambah Foto" untuk memulai.</p>
           </div>
         )}
       </div>

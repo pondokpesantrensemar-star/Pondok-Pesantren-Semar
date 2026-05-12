@@ -27,10 +27,7 @@ const defaultPrograms = [
 
 export default function Programs() {
   const { programs: dbPrograms, loading } = usePrograms();
-  const programs = (dbPrograms.length > 0 ? dbPrograms : defaultPrograms).filter(p => 
-    !p.title.toLowerCase().includes('paud') && 
-    !p.title.toLowerCase().includes('ibtidaiyah')
-  );
+  const programs = dbPrograms.length > 0 ? dbPrograms : defaultPrograms;
 
   if (!loading && programs.length === 0) return null;
 

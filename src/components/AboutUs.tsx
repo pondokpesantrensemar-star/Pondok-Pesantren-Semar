@@ -17,7 +17,7 @@ export default function AboutUs() {
   ];
 
   return (
-    <section id="about" className="py-16 bg-white border-b border-pesantren-border">
+    <section id="about" className="py-16 bg-pesantren-cream border-b border-pesantren-border">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <motion.div
@@ -27,21 +27,21 @@ export default function AboutUs() {
             className="w-full text-center max-w-4xl mx-auto"
           >
             <span className="text-pesantren-muted font-bold uppercase tracking-[0.2em] text-[10px] mb-2 block">Manifesto Pesantren</span>
-            <h2 className="text-3xl md:text-4xl font-serif font-bold text-pesantren-green mb-6 leading-tight">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-pesantren-dark mb-6 leading-tight">
               Mendidik dengan Hati, <br />
-              <span className="italic text-pesantren-dark">Menempa dengan Ilmu.</span>
+              <span className="italic text-pesantren-green">Menempa dengan Ilmu.</span>
             </h2>
-            <p className="text-gray-500 leading-relaxed mb-8 text-sm">
+            <p className="text-slate-600 leading-relaxed mb-8 text-sm">
               {aboutText}
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 text-left">
-              <div className="bg-pesantren-cream p-5 rounded-2xl">
+              <div className="bg-white p-5 rounded-2xl border border-pesantren-border shadow-sm">
                 <h4 className="font-bold text-pesantren-green mb-1 text-sm">Visi</h4>
-                <p className="text-[12px] text-gray-500 italic leading-relaxed">{vision}</p>
+                <p className="text-[12px] text-slate-500 italic leading-relaxed">{vision}</p>
               </div>
-              <div className="bg-pesantren-green p-5 rounded-2xl text-white">
-                <h4 className="font-bold mb-1 text-sm">Misi</h4>
+              <div className="bg-pesantren-dark p-5 rounded-2xl text-white shadow-xl shadow-pesantren-dark/10">
+                <h4 className="font-bold mb-1 text-sm text-pesantren-gold">Misi</h4>
                 <p className="text-[11px] text-white/80 whitespace-pre-line leading-relaxed">{mission}</p>
               </div>
             </div>

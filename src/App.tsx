@@ -5,8 +5,6 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, lazy, Suspense } from "react";
-import { doc, getDocFromServer } from "firebase/firestore";
-import { db } from "./lib/firebase";
 
 // Components
 import Navbar from "./components/Navbar";
@@ -14,8 +12,10 @@ import Hero from "./components/Hero";
 import Programs from "./components/Programs";
 import AboutUs from "./components/AboutUs";
 import Gallery from "./components/Gallery";
+import News from "./components/News";
 import Facilities from "./components/Facilities";
 import Footer from "./components/Footer";
+import BackToTop from "./components/BackToTop";
 import { motion, useScroll, useSpring } from "motion/react";
 import { Loader2 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
@@ -25,14 +25,16 @@ const AuthGuard = lazy(() => import("./components/Admin/AuthGuard"));
 const AdminLayout = lazy(() => import("./components/Admin/AdminLayout"));
 const DashboardHome = lazy(() => import("./components/Admin/DashboardHome"));
 const ProgramManager = lazy(() => import("./components/Admin/ProgramManager"));
+const NewsManager = lazy(() => import("./components/Admin/NewsManager"));
 const SettingManager = lazy(() => import("./components/Admin/SettingManager"));
 const GalleryManager = lazy(() => import("./components/Admin/GalleryManager"));
 const FacilityManager = lazy(() => import("./components/Admin/FacilityManager"));
 const KesantrianManager = lazy(() => import("./components/Admin/KesantrianManager"));
 const ActivityManager = lazy(() => import("./components/Admin/ActivityManager"));
+const ViolationManager = lazy(() => import("./components/Admin/ViolationManager"));
+const FinancialManager = lazy(() => import("./components/Admin/FinancialManager"));
+const PermitManager = lazy(() => import("./components/Admin/PermitManager"));
 const StaffManager = lazy(() => import("./components/Admin/StaffManager"));
-
-import { seedInitialData } from "./lib/seed";
 
 const LoadingScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-pesantren-cream">
@@ -61,16 +63,18 @@ function PublicView() {
         <AboutUs />
         <Programs />
         <Facilities />
+        <News />
         <Gallery />
       </main>
       <Footer />
+      <BackToTop />
     </div>
   );
 }
 
 export default function App() {
   useEffect(() => {
-    seedInitialData();
+    // seedInitialData(); Removed Firebase seeding
   }, []);
 
   return (
@@ -117,6 +121,13 @@ export default function App() {
               </AdminLayout>
             </AuthGuard>
           } />
+          <Route path="/admin/news" element={
+            <AuthGuard>
+              <AdminLayout>
+                <NewsManager />
+              </AdminLayout>
+            </AuthGuard>
+          } />
           <Route path="/admin/gallery" element={
             <AuthGuard>
               <AdminLayout>
@@ -142,6 +153,27 @@ export default function App() {
             <AuthGuard>
               <AdminLayout>
                 <ActivityManager />
+              </AdminLayout>
+            </AuthGuard>
+          } />
+          <Route path="/admin/prayer" element={
+            <AuthGuard>
+              <AdminLayout>
+                <ViolationManager />
+              </AdminLayout>
+            </AuthGuard>
+          } />
+          <Route path="/admin/financial" element={
+            <AuthGuard>
+              <AdminLayout>
+                <FinancialManager />
+              </AdminLayout>
+            </AuthGuard>
+          } />
+          <Route path="/admin/permits" element={
+            <AuthGuard>
+              <AdminLayout>
+                <PermitManager />
               </AdminLayout>
             </AuthGuard>
           } />

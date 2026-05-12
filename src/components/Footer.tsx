@@ -8,8 +8,10 @@ export default function Footer() {
     <footer className="bg-pesantren-cream border-t border-pesantren-border">
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12 py-10 flex flex-col md:flex-row justify-between items-center gap-8">
         {/* Address Info */}
-        <div className="text-[13px] text-pesantren-dark tracking-wider text-center md:text-left max-w-md font-medium">
-          {settings?.address || "Jl. Darussalam Dsn Dulat Ragang Waru Pamekasan 69353. Jawa Timur"}
+        <div className="text-[12px] text-pesantren-dark tracking-wider text-center md:text-left max-w-sm font-medium space-y-1">
+          <p className="font-bold">{settings?.address || "Jl. Darussalam Dsn Dulat Ragang Waru Pamekasan 69353, Jawa Timur"}</p>
+          <p>Telp: +62 812-3456-7890</p>
+          <p>Email: info@pesantrensemar.id</p>
         </div>
 
         {/* Brand Accent */}
@@ -19,20 +21,20 @@ export default function Footer() {
         </div>
 
         {/* Social Links */}
-        <div className="flex space-x-8 text-[12px] font-bold text-pesantren-green tracking-[0.2em]">
-          <a href="#" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
+        <div className="flex flex-wrap justify-center gap-6 text-[12px] font-bold text-pesantren-green tracking-[0.2em]">
+          <a href="https://instagram.com/pesantrensemar" target="_blank" rel="noopener noreferrer" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
             <Instagram size={14} className="group-hover:scale-110 transition-transform" />
             <span className="hidden sm:inline">INSTAGRAM</span>
           </a>
-          <a href="#" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
+          <a href="https://youtube.com/@pesantrensemar" target="_blank" rel="noopener noreferrer" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
             <Youtube size={14} className="group-hover:scale-110 transition-transform" />
             <span className="hidden sm:inline">YOUTUBE</span>
           </a>
-          <a href="#" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
+          <a href="https://tiktok.com/@pesantrensemar" target="_blank" rel="noopener noreferrer" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
             <Music size={14} className="group-hover:scale-110 transition-transform" />
             <span className="hidden sm:inline">TIKTOK</span>
           </a>
-          <a href="#" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
+          <a href="https://facebook.com/pesantrensemar" target="_blank" rel="noopener noreferrer" className="hover:text-pesantren-gold transition-colors flex items-center gap-2 group">
             <Facebook size={14} className="group-hover:scale-110 transition-transform" />
             <span className="hidden sm:inline">FACEBOOK</span>
           </a>
